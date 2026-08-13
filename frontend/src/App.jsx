@@ -8,6 +8,8 @@ import AppLayout from './components/layout/AppLayout'
 import Dashboard from './pages/Dashboard/Dashboard'
 import Practice from './pages/Practice/Practice'
 import Problem from './pages/Problem/Problem'
+import Roadmap from './pages/Roadmap/Roadmap'
+import A2Z from './pages/A2Z/A2Z'
 
 function App() {
   return (
@@ -29,7 +31,7 @@ function App() {
 
           <Route path="/ai-coach" element={<div>AI Coach</div>} />
 
-          <Route path="/roadmap" element={<div>Roadmap</div>}/>
+          <Route path="/roadmap" element={<Roadmap />}/>
 
           <Route path="/mcq" element={<div>MCQ</div>}/>
 
@@ -41,6 +43,8 @@ function App() {
 
           <Route path="/problem/:id" element={<Problem />} />
 
+          <Route path="/a2z" element={<A2Z />}/>
+          
           <Route path="/settings" element={<div>Settings</div>}/>
 
         </Route>
