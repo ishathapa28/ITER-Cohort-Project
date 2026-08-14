@@ -10,44 +10,48 @@ import Practice from './pages/Practice/Practice'
 import Problem from './pages/Problem/Problem'
 import Progress from './pages/Progress/Progress'       
 import Bookmarks from './pages/Bookmarks/Bookmarks'
+import Roadmap from './pages/Roadmap/Roadmap'
+import A2Z from './pages/A2Z/A2Z'
 
 function App() {
   return (
-      <Routes>
+    <Routes>
 
-        {/* Public */}
-        <Route path="/" element={<Landing />} />
+      {/* Public */}
+      <Route path="/" element={<Landing />} />
 
-        {/* Authentication */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+      {/* Authentication */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
 
-        {/* Main application */}
-        <Route element={<AppLayout />}>
+      {/* Main application */}
+      <Route element={<AppLayout />}>
 
-          <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
 
-          <Route path="/practice" element={<Practice />}/>
+        <Route path="/practice" element={<Practice />} />
 
-          <Route path="/ai-coach" element={<div>AI Coach</div>} />
+        <Route path="/ai-coach" element={<div>AI Coach</div>} />
 
-          <Route path="/roadmap" element={<div>Roadmap</div>}/>
+        <Route path="/roadmap" element={<Roadmap />} />
 
-          <Route path="/mcq" element={<div>MCQ</div>}/>
+        <Route path="/mcq" element={<div>MCQ</div>} />
 
-          <Route path="/interview" element={<div>Interview Prep</div>}/>
+        <Route path="/interview" element={<div>Interview Prep</div>} />
 
-          <Route path="/progress" element={<Progress />} />
+        <Route path="/progress" element={<Progress />} />
 
-          <Route path="/bookmarks" element={<Bookmarks />} />
+        <Route path="/bookmarks" element={<Bookmarks />} />
 
-          <Route path="/problem/:id" element={<Problem />} />
+        <Route path="/problem/:id" element={<Problem />} />
 
-          <Route path="/settings" element={<div>Settings</div>}/>
+        <Route path="/a2z" element={<A2Z />} />
+        
+        <Route path="/settings" element={<div>Settings</div>} />
 
-        </Route>
+      </Route>
 
-      </Routes>
+    </Routes>
   )
 }
 
