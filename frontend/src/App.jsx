@@ -12,6 +12,7 @@ import Progress from './pages/Progress/Progress'
 import Bookmarks from './pages/Bookmarks/Bookmarks'
 import Roadmap from './pages/Roadmap/Roadmap'
 import A2Z from './pages/A2Z/A2Z'
+import MCQ from './pages/MCQ/MCQ'
 
 function App() {
   return (
@@ -35,7 +36,7 @@ function App() {
 
         <Route path="/roadmap" element={<Roadmap />} />
 
-        <Route path="/mcq" element={<div>MCQ</div>} />
+        <Route path="/mcq" element={<MCQ />} />
 
         <Route path="/interview" element={<div>Interview Prep</div>} />
 
