@@ -635,7 +635,7 @@ export default function LandingPage() {
 
         <div className="max-w-6xl mx-auto mt-12 pt-6 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between text-xs text-[#64748B]">
           <p>© {new Date().getFullYear()} DSA Coach AI. All rights reserved.</p>
-          <p className="mt-2 sm:mt-0">Built with React & Tailwind CSS</p>
+          <p className="mt-2 sm:mt-0">Built with AgentOps</p>
         </div>
       </footer>
 

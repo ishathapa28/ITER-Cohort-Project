@@ -8,6 +8,8 @@ import AppLayout from './components/layout/AppLayout'
 import Dashboard from './pages/Dashboard/Dashboard'
 import Practice from './pages/Practice/Practice'
 import Problem from './pages/Problem/Problem'
+import Progress from './pages/Progress/Progress'       
+import Bookmarks from './pages/Bookmarks/Bookmarks'
 
 function App() {
   return (
@@ -35,9 +37,9 @@ function App() {
 
           <Route path="/interview" element={<div>Interview Prep</div>}/>
 
-          <Route path="/progress" element={<div>Progress</div>} />
+          <Route path="/progress" element={<Progress />} />
 
-          <Route path="/bookmarks" element={<div>Bookmarks</div>} />
+          <Route path="/bookmarks" element={<Bookmarks />} />
 
           <Route path="/problem/:id" element={<Problem />} />
 
