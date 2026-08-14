@@ -1,53 +1,71 @@
 import { Routes, Route } from 'react-router-dom'
 
+import ProtectedRoute from './components/common/ProtectedRoute'
+
 import Landing from './pages/Landing/Landing'
 import Login from './pages/Auth/Login'
 import Signup from './pages/Auth/Signup'
 
 import AppLayout from './components/layout/AppLayout'
+
 import Dashboard from './pages/Dashboard/Dashboard'
 import Practice from './pages/Practice/Practice'
 import Problem from './pages/Problem/Problem'
-import Progress from './pages/Progress/Progress'       
+import Progress from './pages/Progress/Progress'
 import Bookmarks from './pages/Bookmarks/Bookmarks'
 import Roadmap from './pages/Roadmap/Roadmap'
 import A2Z from './pages/A2Z/A2Z'
+import Profile from './pages/Profile/Profile'
+import Settings from './pages/Settings/Settings'
+import AICoach from './pages/AICoach/AICoach'
+import InterviewPrep from './pages/InterviewPrep/InterviewPrep'
 
 function App() {
   return (
     <Routes>
 
-      {/* Public */}
+      {/* PUBLIC ROUTES */}
+
       <Route path="/" element={<Landing />} />
 
-      {/* Authentication */}
       <Route path="/login" element={<Login />} />
+
       <Route path="/signup" element={<Signup />} />
 
-      {/* Main application */}
-      <Route element={<AppLayout />}>
 
-        <Route path="/dashboard" element={<Dashboard />} />
+      {/* PROTECTED ROUTES */}
 
-        <Route path="/practice" element={<Practice />} />
+      <Route element={<ProtectedRoute />}>
 
-        <Route path="/ai-coach" element={<div>AI Coach</div>} />
+        {/* MAIN APPLICATION LAYOUT */}
 
-        <Route path="/roadmap" element={<Roadmap />} />
+        <Route element={<AppLayout />}>
 
-        <Route path="/mcq" element={<div>MCQ</div>} />
+          <Route path="/dashboard" element={<Dashboard />} />
 
-        <Route path="/interview" element={<div>Interview Prep</div>} />
+          <Route path="/practice" element={<Practice />} />
 
-        <Route path="/progress" element={<Progress />} />
+          <Route path="/problem/:id" element={<Problem />} />
 
-        <Route path="/bookmarks" element={<Bookmarks />} />
+          <Route path="/roadmap" element={<Roadmap />} />
 
-        <Route path="/problem/:id" element={<Problem />} />
+          <Route path="/mcq" element={<div>MCQ</div>} />
 
-        <Route path="/a2z" element={<A2Z />} />
-        
-        <Route path="/settings" element={<div>Settings</div>} />
+          <Route path="/interview" element={<InterviewPrep />} />
+
+          <Route path="/progress" element={<Progress />} />
+
+          <Route path="/bookmarks" element={<Bookmarks />} />
+
+          <Route path="/a2z" element={<A2Z />} />
+
+          <Route path="/settings" element={<Settings />} />
+
+          <Route path="/profile" element={<Profile />} />
+
+          <Route path="/ai-coach" element={<AICoach />} />
+
+        </Route>
 
       </Route>
 
