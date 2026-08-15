@@ -13,6 +13,7 @@ import Bookmarks from './pages/Bookmarks/Bookmarks'
 import Roadmap from './pages/Roadmap/Roadmap'
 import A2Z from './pages/A2Z/A2Z'
 import MCQ from './pages/MCQ/MCQ'
+import Tips from './pages/Tips/Tips'
 
 function App() {
   return (
@@ -43,6 +44,8 @@ function App() {
         <Route path="/progress" element={<Progress />} />
 
         <Route path="/bookmarks" element={<Bookmarks />} />
+
+        <Route path="/tips" element={<Tips />} /> 
 
         <Route path="/problem/:id" element={<Problem />} />
 
