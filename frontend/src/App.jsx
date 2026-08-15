@@ -14,6 +14,10 @@ import Roadmap from './pages/Roadmap/Roadmap'
 import A2Z from './pages/A2Z/A2Z'
 import MCQ from './pages/MCQ/MCQ'
 import Tips from './pages/Tips/Tips'
+import Profile from './pages/Profile/Profile'
+import Settings from './pages/Settings/Settings'
+import AICoach from './pages/AICoach/AICoach'
+import InterviewPrep from './pages/InterviewPrep/InterviewPrep'
 
 function App() {
   return (
@@ -33,25 +37,27 @@ function App() {
 
         <Route path="/practice" element={<Practice />} />
 
-        <Route path="/ai-coach" element={<div>AI Coach</div>} />
+        <Route path="/ai-coach" element={<AICoach />} />
 
         <Route path="/roadmap" element={<Roadmap />} />
 
         <Route path="/mcq" element={<MCQ />} />
 
-        <Route path="/interview" element={<div>Interview Prep</div>} />
+        <Route path="/interview" element={<InterviewPrep />} />
 
         <Route path="/progress" element={<Progress />} />
 
         <Route path="/bookmarks" element={<Bookmarks />} />
 
-        <Route path="/tips" element={<Tips />} /> 
+        <Route path="/tips" element={<Tips />} />
 
         <Route path="/problem/:id" element={<Problem />} />
 
         <Route path="/a2z" element={<A2Z />} />
-        
-        <Route path="/settings" element={<div>Settings</div>} />
+
+        <Route path="/profile" element={<Profile />} />
+
+        <Route path="/settings" element={<Settings />} />
 
       </Route>
 

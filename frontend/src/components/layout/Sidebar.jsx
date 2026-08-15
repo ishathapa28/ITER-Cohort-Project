@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import {
   LayoutDashboard,
@@ -14,10 +14,13 @@ import {
   LogOut
 } from 'lucide-react'
 
+import { signOut } from 'firebase/auth'
+import { auth } from '../../services/firebase'
 
 function Sidebar() {
   const location = useLocation()
 
+  const navigate = useNavigate()
 
   const navigationGroups = [
     {
@@ -110,6 +113,22 @@ function Sidebar() {
     }
 
     return location.pathname === path
+  }
+
+  const handleLogout = async () => {
+
+    try {
+
+      await signOut(auth)
+
+      navigate('/login', { replace: true })
+
+    } catch (error) {
+
+      console.error('Logout failed:', error)
+
+    }
+
   }
 
 
@@ -345,6 +364,7 @@ function Sidebar() {
 
         <button
           type="button"
+          onClick={handleLogout}
           className="
             w-full
             flex

@@ -3,6 +3,7 @@ import Sidebar from './Sidebar'
 import TopNavbar from './TopNavbar'
 
 function AppLayout() {
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
 
