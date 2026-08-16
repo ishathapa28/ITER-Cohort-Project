@@ -1,0 +1,898 @@
+from typing import List, Dict, Any, Set
+
+from langchain_core.documents import Document
+from sqlalchemy import text
+
+from app.database.database import SessionLocal
+from app.rag.embeddings import embed_query
+
+
+# ============================================================
+# TEXT NORMALIZATION
+# ============================================================
+
+def normalize_text(value: str) -> str:
+    """
+    Normalize text so problem names can be matched reliably.
+
+    Examples:
+
+        "3Sum Closest"       -> "3sum closest"
+        "3sum_closest"       -> "3sum closest"
+        "Problem 16: 3Sum"   -> "problem 16 3sum"
+        "Meeting Rooms II"   -> "meeting rooms ii"
+    """
+
+    if not value:
+        return ""
+
+    return (
+        value.lower()
+        .replace("-", " ")
+        .replace("_", " ")
+        .replace(":", " ")
+        .replace(",", " ")
+        .strip()
+    )
+
+
+# ============================================================
+# PROBLEM NAME MATCHING
+# ============================================================
+
+def remove_problem_prefix(value: str) -> str:
+    """
+    Remove prefixes such as:
+
+        Problem 16
+        Problem 253
+
+    from a title.
+
+    Example:
+
+        "problem 16 3sum closest"
+        ->
+        "3sum closest"
+    """
+
+    normalized = normalize_text(value)
+
+    if normalized.startswith("problem "):
+
+        parts = normalized.split(" ", 2)
+
+        if len(parts) == 3:
+            return parts[2]
+
+    return normalized
+
+
+def problem_name_matches(
+    query: str,
+    title: str,
+    problem_id: str,
+) -> bool:
+    """
+    Determine whether the user explicitly mentioned
+    the candidate problem.
+
+    This is intentionally stronger than semantic similarity.
+
+    Example:
+
+        Query:
+        "Explain 3Sum Closest and its two pointer approach."
+
+        Candidate:
+        Problem 16: 3Sum Closest
+
+        -> True
+
+    But:
+
+        Query:
+        "Explain 3Sum Closest..."
+
+        Candidate:
+        Problem 15: 3Sum
+
+        -> False
+    """
+
+    query_normalized = normalize_text(query)
+
+    title_normalized = normalize_text(title)
+    problem_id_normalized = normalize_text(problem_id)
+
+    # Remove "problem 16" / "problem 253" from title.
+    title_without_prefix = remove_problem_prefix(title)
+
+    # --------------------------------------------------------
+    # Exact title match
+    # --------------------------------------------------------
+
+    if (
+        title_normalized
+        and title_normalized in query_normalized
+    ):
+        return True
+
+    # --------------------------------------------------------
+    # Title without "Problem N"
+    # --------------------------------------------------------
+
+    if (
+        title_without_prefix
+        and title_without_prefix in query_normalized
+    ):
+        return True
+
+    # --------------------------------------------------------
+    # Problem ID match
+    #
+    # Example:
+    #
+    # 3sum_closest -> 3sum closest
+    # --------------------------------------------------------
+
+    if (
+        problem_id_normalized
+        and problem_id_normalized in query_normalized
+    ):
+        return True
+
+    return False
+
+
+# ============================================================
+# EXPLICIT PROBLEM DETECTION
+# ============================================================
+
+def extract_explicit_problem_candidates(
+    query: str,
+) -> Set[str]:
+    """
+    Detect well-known multi-word DSA problem names from the query.
+
+    This helps prevent related problems from outranking the
+    explicitly requested problem.
+
+    Example:
+
+        "Explain 3Sum Closest and its two pointer approach."
+
+    returns:
+
+        {"3sum closest"}
+
+    """
+
+    query_normalized = normalize_text(query)
+
+    known_problem_names = [
+        "3sum closest",
+        "3sum smaller",
+        "meeting rooms ii",
+        "majority element ii",
+        "contains duplicate ii",
+        "contains duplicate iii",
+        "intersection of two arrays ii",
+        "kth largest element in an array",
+        "kth smallest element in a sorted matrix",
+        "minimum number of arrows to burst balloons",
+        "find all duplicates in an array",
+        "minimum moves to equal array elements ii",
+        "sort colors",
+        "group anagrams",
+        "merge intervals",
+        "non overlapping intervals",
+        "queue reconstruction by height",
+        "russian doll envelopes",
+        "the skyline problem",
+        "find median from data stream",
+        "best meeting point",
+        "reconstruct itinerary",
+        "relative ranks",
+        "largest divisible subset",
+        "rearrange string k distance apart",
+        "sort transformed array",
+    ]
+
+    matches = set()
+
+    for problem_name in known_problem_names:
+
+        if problem_name in query_normalized:
+            matches.add(problem_name)
+
+    return matches
+
+
+# ============================================================
+# CANONICAL PROBLEM ID
+# ============================================================
+
+def canonical_problem_id(
+    title: str,
+    problem_id: str,
+) -> str:
+    """
+    Produce a normalized representation of a problem.
+
+    Example:
+
+        title = "Problem 16: 3Sum Closest"
+        problem_id = "3sum_closest"
+
+        -> "3sum closest"
+    """
+
+    normalized_id = normalize_text(problem_id)
+
+    if normalized_id:
+        return normalized_id
+
+    return remove_problem_prefix(title)
+
+
+# ============================================================
+# RELATED PROBLEM PENALTY
+# ============================================================
+
+def related_problem_penalty(
+    query: str,
+    candidate_problem_id: str,
+    candidate_title: str,
+) -> float:
+    """
+    Penalize a candidate when the query explicitly names
+    another, different problem.
+
+    This is particularly important for problems such as:
+
+        3Sum
+        3Sum Closest
+        3Sum Smaller
+
+    or:
+
+        Contains Duplicate
+        Contains Duplicate II
+        Contains Duplicate III
+
+    Semantic embeddings naturally consider these problems
+    very similar. This penalty protects the explicitly
+    requested problem.
+    """
+
+    query_normalized = normalize_text(query)
+
+    candidate_id = normalize_text(candidate_problem_id)
+    candidate_title = remove_problem_prefix(candidate_title)
+
+    penalty = 0.0
+
+    # --------------------------------------------------------
+    # 3Sum family
+    # --------------------------------------------------------
+
+    if "3sum closest" in query_normalized:
+
+        if candidate_id == "3sum":
+            penalty += 0.35
+
+        elif candidate_id == "3sum smaller":
+            penalty += 0.30
+
+    elif "3sum smaller" in query_normalized:
+
+        if candidate_id == "3sum":
+            penalty += 0.35
+
+        elif candidate_id == "3sum closest":
+            penalty += 0.30
+
+    # --------------------------------------------------------
+    # Meeting Rooms family
+    # --------------------------------------------------------
+
+    if "meeting rooms ii" in query_normalized:
+
+        if candidate_id == "meeting rooms":
+            penalty += 0.35
+
+    # --------------------------------------------------------
+    # Majority Element family
+    # --------------------------------------------------------
+
+    if "majority element ii" in query_normalized:
+
+        if candidate_id == "majority element":
+            penalty += 0.35
+
+    # --------------------------------------------------------
+    # Contains Duplicate family
+    # --------------------------------------------------------
+
+    if "contains duplicate iii" in query_normalized:
+
+        if candidate_id == "contains duplicate":
+            penalty += 0.35
+
+        elif candidate_id == "contains duplicate ii":
+            penalty += 0.30
+
+    elif "contains duplicate ii" in query_normalized:
+
+        if candidate_id == "contains duplicate":
+            penalty += 0.35
+
+        elif candidate_id == "contains duplicate iii":
+            penalty += 0.30
+
+    # --------------------------------------------------------
+    # Intersection of Two Arrays family
+    # --------------------------------------------------------
+
+    if "intersection of two arrays ii" in query_normalized:
+
+        if candidate_id == "intersection of two arrays":
+            penalty += 0.35
+
+    return penalty
+
+
+# ============================================================
+# SECTION QUALITY
+# ============================================================
+
+def section_score(section: str) -> float:
+    """
+    Return a reranking adjustment based on section quality.
+
+    Lower score = better ranking because the final candidate
+    score is sorted ascending.
+
+    We prefer explanatory sections over generic metadata sections.
+    """
+
+    section = normalize_text(section)
+
+    # --------------------------------------------------------
+    # Highest-value sections
+    # --------------------------------------------------------
+
+    if section == "optimized approach":
+        return -0.14
+
+    if section == "key idea":
+        return -0.12
+
+    if section == "interview explanation":
+        return -0.11
+
+    if section == "algorithm":
+        return -0.09
+
+    # --------------------------------------------------------
+    # Useful sections
+    # --------------------------------------------------------
+
+    if section in {
+        "problem",
+        "problem description",
+    }:
+        return -0.05
+
+    if section == "hints":
+        return -0.03
+
+    if section == "common mistakes":
+        return -0.02
+
+    if section == "edge cases":
+        return -0.01
+
+    if section == "complexity analysis":
+        return 0.00
+
+    # --------------------------------------------------------
+    # Lower-value sections
+    # --------------------------------------------------------
+
+    if section == "introduction":
+        return 0.06
+
+    if section == "pattern":
+        return 0.05
+
+    # --------------------------------------------------------
+    # Default
+    # --------------------------------------------------------
+
+    return 0.00
+
+
+# ============================================================
+# QUERY INTENT / CONCEPT MATCHING
+# ============================================================
+
+def query_concept_score(
+    query: str,
+    title: str,
+    problem_id: str,
+    section: str,
+    content: str,
+) -> float:
+    """
+    Boost candidates that directly match the main concept
+    asked about in the query.
+
+    Lower final score = better candidate.
+    """
+
+    query_normalized = normalize_text(query)
+
+    title_normalized = normalize_text(title)
+    problem_normalized = normalize_text(problem_id)
+    section_normalized = normalize_text(section)
+    content_normalized = normalize_text(content)
+
+    score = 0.0
+
+    # --------------------------------------------------------
+    # IMPORTANT DSA CONCEPTS
+    # --------------------------------------------------------
+
+    concepts = [
+        "binary search",
+        "linked list",
+        "array",
+        "string",
+        "stack",
+        "queue",
+        "hash map",
+        "hashmap",
+        "heap",
+        "priority queue",
+        "two pointer",
+        "two pointers",
+        "sliding window",
+        "recursion",
+        "dynamic programming",
+        "greedy",
+        "backtracking",
+        "graph",
+        "tree",
+        "binary tree",
+        "binary search tree",
+    ]
+
+    for concept in concepts:
+
+        if concept not in query_normalized:
+            continue
+
+        # Strongest: concept appears in title
+        if concept in title_normalized:
+            score -= 0.20
+
+        # Strong: concept appears in problem ID
+        elif concept in problem_normalized:
+            score -= 0.18
+
+        # Good: concept appears in content
+        elif concept in content_normalized:
+            score -= 0.08
+
+    # --------------------------------------------------------
+    # COMPLEXITY QUESTIONS
+    # --------------------------------------------------------
+
+    complexity_terms = [
+        "time complexity",
+        "space complexity",
+        "complexity",
+        "big o",
+        "time",
+        "space",
+    ]
+
+    complexity_query = any(
+        term in query_normalized
+        for term in complexity_terms
+    )
+
+    if complexity_query:
+
+        if (
+            "complexity analysis" in section_normalized
+        ):
+            score -= 0.18
+
+        elif (
+            "complexity" in section_normalized
+        ):
+            score -= 0.15
+
+        # If the content actually discusses complexity,
+        # prefer it over unrelated chunks.
+        if (
+            "time complexity" in content_normalized
+        ):
+            score -= 0.08
+
+        if (
+            "space complexity" in content_normalized
+        ):
+            score -= 0.05
+
+    # --------------------------------------------------------
+    # DEFINITION / WHAT-IS QUESTIONS
+    # --------------------------------------------------------
+
+    definition_query = (
+        query_normalized.startswith("what is")
+        or query_normalized.startswith("what are")
+        or "define " in query_normalized
+        or "definition" in query_normalized
+    )
+
+    if definition_query:
+
+        if section_normalized in {
+            "introduction",
+            "problem",
+            "problem description",
+            "key idea",
+            "interview explanation",
+        }:
+            score -= 0.08
+
+    return score
+
+# ============================================================
+# SIMILARITY SEARCH
+# ============================================================
+
+def similarity_search(
+    query: str,
+    top_k: int = 5,
+) -> List[Document]:
+    """
+    Retrieve relevant DSA knowledge chunks from PostgreSQL
+    using pgvector similarity search followed by deterministic
+    metadata-aware reranking.
+
+    Retrieval pipeline:
+
+    1. Validate query.
+    2. Generate query embedding.
+    3. Retrieve a larger semantic candidate set.
+    4. Detect explicit problem names.
+    5. Strongly boost exact problem matches.
+    6. Boost useful explanation sections.
+    7. Penalize related-but-different problems.
+    8. Apply keyword/pattern matching.
+    9. Sort by final reranking score.
+    10. Return top_k LangChain Documents.
+    """
+
+    if not query or not query.strip():
+        return []
+
+    # ========================================================
+    # 1. EMBED QUERY
+    # ========================================================
+
+    query_embedding = embed_query(query)
+
+    # ========================================================
+    # 2. RETRIEVE LARGER CANDIDATE SET
+    # ========================================================
+
+    # We retrieve more than top_k because semantic similarity
+    # may place a related problem above the exact problem.
+    candidate_k = max(top_k * 10, 50)
+
+    db = SessionLocal()
+
+    try:
+
+        sql = text(
+            """
+            SELECT
+                id,
+                problem_id,
+                title,
+                topic,
+                difficulty,
+                pattern,
+                section,
+                content,
+                source,
+                embedding <=> CAST(:query_embedding AS vector)
+                    AS distance
+            FROM knowledge_chunks
+            ORDER BY embedding <=> CAST(:query_embedding AS vector)
+            LIMIT :candidate_k
+            """
+        )
+
+        result = db.execute(
+            sql,
+            {
+                "query_embedding": str(query_embedding),
+                "candidate_k": candidate_k,
+            },
+        )
+
+        rows = result.fetchall()
+
+        # ====================================================
+        # 3. QUERY PREPARATION
+        # ====================================================
+
+        query_normalized = normalize_text(query)
+        query_words = set(query_normalized.split())
+
+        explicit_problem_names = (
+            extract_explicit_problem_candidates(query)
+        )
+
+        candidates: List[Dict[str, Any]] = []
+
+        # ====================================================
+        # 4. RERANK
+        # ====================================================
+
+        for row in rows:
+
+            title = normalize_text(row.title)
+            problem_id = normalize_text(row.problem_id)
+            pattern = normalize_text(row.pattern)
+            section = normalize_text(row.section)
+            content = normalize_text(row.content)
+
+            original_distance = float(row.distance)
+
+            # Start with vector similarity distance.
+            #
+            # Lower distance = better.
+            score = original_distance
+
+            # ==================================================
+            # A. EXACT PROBLEM MATCH
+            # ==================================================
+
+            exact_problem_match = problem_name_matches(
+                query,
+                row.title,
+                row.problem_id,
+            )
+
+            if exact_problem_match:
+
+                # VERY strong boost.
+                #
+                # This is the most important rule.
+                score -= 0.30
+
+            # ==================================================
+            # B. EXPLICIT MULTI-WORD PROBLEM MATCH
+            # ==================================================
+
+            candidate_problem_name = canonical_problem_id(
+                row.title,
+                row.problem_id,
+            )
+
+            for explicit_name in explicit_problem_names:
+
+                if explicit_name == candidate_problem_name:
+
+                    # Additional protection for explicitly
+                    # requested problem.
+                    score -= 0.15
+
+            # ==================================================
+            # C. TITLE WORD OVERLAP
+            # ==================================================
+
+            title_words = set(title.split())
+
+            title_overlap = query_words.intersection(
+                title_words
+            )
+
+            if title_overlap:
+
+                score -= min(
+                    0.10,
+                    0.03 * len(title_overlap)
+                )
+
+            # ==================================================
+            # D. PROBLEM ID OVERLAP
+            # ==================================================
+
+            if (
+                problem_id
+                and problem_id in query_normalized
+            ):
+
+                score -= 0.15
+
+            # ==================================================
+            # E. PATTERN MATCH
+            # ==================================================
+
+            pattern_words = set(
+                pattern
+                .replace("/", " ")
+                .replace("+", " ")
+                .replace("|", " ")
+                .split()
+            )
+
+            pattern_overlap = query_words.intersection(
+                pattern_words
+            )
+
+            if pattern_overlap:
+
+                score -= min(
+                    0.06,
+                    0.02 * len(pattern_overlap)
+                )
+
+            # ==================================================
+            # F. SECTION QUALITY
+            # ==================================================
+
+            score += section_score(section)
+
+            # ==================================================
+            # F2. CONCEPT / QUERY INTENT MATCH
+            # ==================================================
+
+            score += query_concept_score(
+                query=query,
+                title=row.title,
+                problem_id=row.problem_id,
+                section=row.section,
+                content=row.content,
+            )
+
+            # ==================================================
+            # G. RELATED PROBLEM PENALTY
+            # ==================================================
+
+            score += related_problem_penalty(
+                query,
+                row.problem_id,
+                row.title,
+            )
+
+            # ==================================================
+            # H. IMPORTANT CONTENT KEYWORDS
+            # ==================================================
+
+            important_keywords = [
+                "two pointer",
+                "two pointers",
+                "target",
+                "closest",
+                "minimum difference",
+                "sorted",
+                "sorting",
+                "min heap",
+                "heap",
+                "sliding window",
+                "binary search",
+                "hash map",
+                "dynamic programming",
+                "greedy",
+            ]
+
+            for keyword in important_keywords:
+
+                if (
+                    keyword in query_normalized
+                    and keyword in content
+                ):
+
+                    score -= 0.015
+
+            # ==================================================
+            # I. QUERY WORD MATCH IN CONTENT
+            # ==================================================
+
+            content_words = set(content.split())
+
+            content_overlap = query_words.intersection(
+                content_words
+            )
+
+            if content_overlap:
+
+                score -= min(
+                    0.05,
+                    0.005 * len(content_overlap)
+                )
+
+            # ==================================================
+            # J. STORE CANDIDATE
+            # ==================================================
+
+            candidates.append(
+                {
+                    "row": row,
+                    "score": score,
+                    "distance": original_distance,
+                    "exact_problem_match": exact_problem_match,
+                }
+            )
+
+        # ========================================================
+        # 5. SORT CANDIDATES
+        # ========================================================
+
+        # Exact problem matches are given priority first.
+        #
+        # This is deliberately deterministic. We don't want a
+        # semantically similar problem such as "3Sum" to appear
+        # above "3Sum Smaller" simply because its embedding
+        # happened to be slightly closer.
+
+        candidates.sort(
+            key=lambda item: (
+                not item["exact_problem_match"],
+                item["score"],
+            )
+        )
+
+        # ========================================================
+        # 6. BUILD LANGCHAIN DOCUMENTS
+        # ========================================================
+
+        documents: List[Document] = []
+
+        for candidate in candidates[:top_k]:
+
+            row = candidate["row"]
+
+            document = Document(
+                page_content=row.content,
+
+                metadata={
+                    "id": row.id,
+                    "problem_id": row.problem_id,
+                    "title": row.title,
+                    "topic": row.topic,
+                    "difficulty": row.difficulty,
+                    "pattern": row.pattern,
+                    "section": row.section,
+                    "source": row.source,
+
+                    # Original vector distance.
+                    "distance": candidate["distance"],
+
+                    # Final reranking score.
+                    "rerank_score": candidate["score"],
+
+                    # Useful for debugging.
+                    "exact_problem_match": (
+                        candidate["exact_problem_match"]
+                    ),
+                },
+            )
+
+            documents.append(document)
+
+        return documents
+
+    finally:
+
+        db.close()

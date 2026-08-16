@@ -202,7 +202,7 @@ async function getMockCoachResponse({
 async function getFastAPIResponse(payload) {
 
   const response = await fetch(
-    `${API_BASE_URL}/api/ai-coach/chat`,
+    `${API_BASE_URL}/api/coach/ask`,
     {
       method: 'POST',
 
@@ -210,7 +210,10 @@ async function getFastAPIResponse(payload) {
         'Content-Type': 'application/json'
       },
 
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        query: payload.message,
+        top_k: 5
+      })
     }
   )
 
@@ -230,18 +233,17 @@ async function getFastAPIResponse(payload) {
       }
 
     } catch {
-      // Keep the default error message.
+      // Keep default error message.
     }
 
     throw new Error(errorMessage)
   }
 
 
-  const data =
-    await response.json()
+  const data = await response.json()
 
 
-  if (!data?.response) {
+  if (!data?.answer) {
 
     throw new Error(
       'AI Coach returned an invalid response.'
@@ -250,8 +252,7 @@ async function getFastAPIResponse(payload) {
   }
 
 
-  return data.response
-
+  return data.answer
 }
 
 
@@ -273,7 +274,7 @@ async function getFastAPIResponse(payload) {
 //
 // ============================================================
 
-const USE_MOCK_AI = true
+const USE_MOCK_AI = false
 
 
 export async function getCoachResponse({

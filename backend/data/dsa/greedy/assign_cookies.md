@@ -1,83 +1,182 @@
-# 455. Assign Cookies
+# Assign Cookies
 
-## Problem Description
+Problem ID: assign_cookies
 
-Solve standard LeetCode problem **455: Assign Cookies** (Easy).
+Title: Assign Cookies
 
-Analyze the problem space and construct an optimal **Greedy Strategy** by making local optimal choices at each step to guarantee a global maximum or minimum outcome.
+Difficulty: Easy
 
----
+Topic: greedy
 
-## Pattern
-
-**Two Pointers Sorting (Smallest Cookie to Smallest Greed)**
+Pattern: **Greedy + Sorting**
 
 ---
 
-## Greedy Choice Property & Optimal Substructure
+## Problem Identity
 
-To prove that a Greedy strategy works for this problem, establish these structural guarantees:
+This document is specifically about:
 
-### 1. Local Greedy Choice
-At every step or transition, choose the locally optimal choice based on current state constraints:
-- **Choice Criterion:** Pick the choice that maximizes local gain or minimizes immediate consumption.
-- **Irreversibility:** Ensure that taking this local decision never invalidates reaching an overall optimal solution.
+**Assign Cookies**
 
-### 2. Optimal Substructure
-Demonstrate that after making a greedy choice, the remaining subproblem retains the exact same structural properties:
-$$\text{Optimal}(S) = \text{Greedy Choice} + \text{Optimal}(S - \text{choice})$$
+This knowledge chunk belongs to:
+
+**greedy**
+
+Do not confuse this problem with another problem that uses a similar pattern.
+
+---
+
+## Problem
+
+Solve the standard **Assign Cookies** problem.
+
+The primary problem-solving pattern is:
+
+**Greedy + Sorting**
+
+---
+
+## Key Idea
+
+Sort the children by their greed and the cookies by their sizes. Assign the smallest cookie that can satisfy the current child so that larger cookies remain available for children with greater requirements.
+
+### Core Invariant
+
+At every step, all cookies before the current cookie pointer have already been considered, and the current smallest usable cookie is assigned whenever it can satisfy the current child.
+
+The invariant explains why binary search can eliminate part of the search space without losing the correct answer.
 
 ---
 
 ## Brute Force Approach
 
-The brute force strategy evaluates all combinations, permutations, or state decisions without leveraging local greedy ordering.
-
-1. Recursively generate or simulate all valid decision branches.
-2. Search through the entire solution space to find the target optimal value.
+For each child, search for an unused cookie that satisfies the child's greed value. Mark the cookie as used after assignment.
 
 ### Brute Force Complexity
-- **Time Complexity:** $O(2^n)$, $O(n^3)$, or $O(n!)$ due to exhaustive combinations.
-- **Space Complexity:** $O(n)$ recursion tree or state storage space.
+
+- **Time Complexity:** O(N * M) time in the straightforward implementation.
+- **Space Complexity:** O(1) auxiliary space unless otherwise required by the implementation.
 
 ---
 
 ## Optimized Approach
 
-The optimal Greedy approach processes elements according to an optimal ordering (e.g., sorting by end-times, maintaining a priority queue, or executing a single-pass sweep).
+### Algorithm Steps
 
-### Algorithmic Execution Steps:
-1. **Preprocessing / Sorting:** Sort the input elements (or insert them into a Heap/Priority Queue) based on the greedy choice invariant.
-2. **Initialize State Trackers:** Create scalar variables or pointers (e.g., `current_end`, `max_reach`, `accumulated_sum`).
-3. **Iterative Greedy Selection:** Iterate through the sorted elements or data stream:
-   - Check if current element meets greedy criteria.
-   - Update global running metrics and advance local bounds.
-4. **Final Return:** Return the accumulated minimum/maximum count or formatted optimal structure.
+1. Sort the greed array of the children.
+2. Sort the cookie sizes.
+3. Use one pointer for children and one pointer for cookies.
+4. If the current cookie can satisfy the current child, assign it and move both pointers.
+5. Otherwise move the cookie pointer because that cookie is too small.
+6. Return the number of satisfied children.
 
----
+### Why This Works
 
-## Hint 1
+The optimized solution works because it exploits the structure provided by:
 
-Can you sort the input based on a key property (such as interval end time, ratio, or deadline) so that local choices line up sequentially?
+**Greedy + Sorting**
 
----
-
-## Hint 2
-
-Does a locally optimal choice ever prevent a globally optimal solution? If not, a single pass or Priority Queue can replace nested loops.
+The search space is reduced systematically while preserving the correct answer inside the remaining range.
 
 ---
 
-## Common Mistakes & Edge Cases
+## Hints
 
-- **Flawed Greedy Choice Assumption:** Making a greedy choice that fails on non-standard inputs (e.g., choosing highest denomination coins in non-canonical coin systems).
-- **Incorrect Sorting Order:** Sorting by start boundary instead of end boundary when resolving interval overlaps.
-- **Priority Queue Out-of-Sync:** Failing to dynamically update or clear invalid elements from a Heap during execution.
-- **Tie-Breaking Edge Cases:** Neglecting secondary sorting constraints when primary properties match.
+### Hint 1
+
+Should you give a large cookie to an easy-to-satisfy child?
+
+### Hint 2
+
+What happens if you always use the smallest cookie that can satisfy the current child?
+
+---
+
+## Common Mistakes
+
+- Assigning cookies in arbitrary order.
+- Using a large cookie when a smaller cookie would work.
+- Forgetting that each cookie can be assigned only once.
+- Moving the wrong pointer after an unsuccessful match.
+
+---
+
+## Edge Cases
+
+- No children.
+- No cookies.
+- All cookies are too small.
+- More cookies than children.
+- More children than cookies.
 
 ---
 
 ## Complexity Analysis
 
-- **Time Complexity:** $O(n)$ for single-pass strategies, or $O(n \log n)$ when sorting or processing via Priority Queue / Heap operations.
-- **Space Complexity:** $O(1)$ auxiliary space for in-place sweeps, or $O(n)$ to store sorted arrays/heaps.
+### Time Complexity
+
+**O(N log N + M log M)**
+
+### Space Complexity
+
+**O(1) auxiliary space excluding the sorting implementation.**
+
+---
+
+## Interview Explanation
+
+A concise interview explanation for **Assign Cookies** is:
+
+> Sort the children by their greed and the cookies by their sizes. Assign the smallest cookie that can satisfy the current child so that larger cookies remain available for children with greater requirements.
+
+When explaining this problem in an interview, focus on:
+
+1. Why binary search is applicable.
+2. What invariant is maintained.
+3. How the search boundaries change.
+4. Why half of the search space can be eliminated.
+5. The final time and space complexity.
+
+---
+
+## Retrieval Keywords
+
+- assign cookies
+- cookie distribution
+- greedy
+- sorting greedy
+- maximum satisfied children
+
+---
+
+## Problem Retrieval Identity
+
+Problem Name: Assign Cookies
+
+Problem ID: assign_cookies
+
+Topic: greedy
+
+Pattern: Greedy + Sorting
+
+Difficulty: Easy
+
+Primary Retrieval Entity:
+
+**Assign Cookies**
+
+This document should be preferred when a user explicitly asks about:
+
+- assign cookies
+- cookie distribution
+- greedy
+- sorting greedy
+- maximum satisfied children
+
+Related concepts:
+
+- assign cookies
+- cookie distribution
+- greedy
+- sorting greedy
+- maximum satisfied children

@@ -68,21 +68,34 @@ def extract_difficulty(document: Document) -> str:
 
 def extract_pattern(document: Document) -> str:
     """
-    Extract the Pattern section.
+    Extract the Pattern field from the Markdown document.
+
+    Example:
+
+        Pattern: **Linear Scan**
+
+    becomes:
+
+        Linear Scan
     """
 
     content = document.page_content
 
     match = re.search(
-        r"##\s+Pattern\s*\n+(.+)",
+        r"^Pattern:\s*(.+)$",
         content,
-        re.IGNORECASE,
+        re.IGNORECASE | re.MULTILINE,
     )
 
     if not match:
         return "unknown"
 
-    return match.group(1).strip()
+    pattern = match.group(1).strip()
+
+    # Remove Markdown bold markers
+    pattern = pattern.replace("**", "")
+
+    return pattern.strip()
 
 
 def add_metadata(document: Document) -> Document:

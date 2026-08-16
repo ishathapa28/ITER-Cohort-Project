@@ -1,93 +1,179 @@
-# 641. Design Circular Deque
+# Design Circular Deque
 
-## Problem Description
+Problem ID: design_circular_deque
 
-Solve standard LeetCode problem **641: Design Circular Deque** (Medium).
+Title: Design Circular Deque
 
-Analyze stream processing constraints, sliding window bounds, or dynamic range optimums, and construct an optimal **Queue**, **Deque**, or **Monotonic Queue** algorithm to manage data in First-In, First-Out (FIFO) or ordered window bounds.
+Difficulty: Medium
 
----
+Topic: queue
 
-## Pattern
-
-**Double-Ended Array / Doubly Linked List Circular Buffer**
+Pattern: **Circular Queue**
 
 ---
 
-## Queue Mechanics & Sliding Window Invariants
+## Problem Identity
 
-To guarantee correct behavior and maintain optimal time complexity, establish these core guarantees:
+This document is specifically about:
 
-### 1. FIFO Stream Invariant
-The standard Queue enforces strict First-In, First-Out order:
-- **Enqueue (`offer` / `push`):** Appends elements to the back of the queue ($O(1)$).
-- **Dequeue (`poll` / `pop`):** Removes elements from the front of the queue ($O(1)$).
-- **Time-Bounded Eviction:** Expire elements at the front of the queue whenever their timestamp or index falls outside the valid window boundary:
-  $$\text{while } (\text{queue.front}().\text{time} < t - \text{threshold}) \implies \text{queue.pop}()$$
+**Design Circular Deque**
 
-### 2. Monotonic Deque Invariant
-A Double-Ended Queue (Deque) can maintain sliding window extrema (minima or maxima) in $O(1)$ amortized time per operation:
+This knowledge chunk belongs to:
 
-- **Monotonic Decreasing Deque (Window Maximum):** Elements are maintained in strictly decreasing order ($D[0] > D[1] > \dots > D[k]$). The front element $D[0]$ always holds the **maximum value** in the current sliding window:
-  $$\text{While } (!D.\text{isEmpty}() \land D.\text{back}().\text{val} \le \text{curr.val}) \implies D.\text{pop\_back}()$$
-- **Monotonic Increasing Deque (Window Minimum):** Elements are maintained in strictly increasing order ($D[0] < D[1] < \dots < D[k]$). The front element $D[0]$ always holds the **minimum value** in the current sliding window:
-  $$\text{While } (!D.\text{isEmpty}() \land D.\text{back}().\text{val} \ge \text{curr.val}) \implies D.\text{pop\_back}()$$
+**queue**
 
-### 3. Window Boundary Eviction
-Store **element indices rather than raw values** inside the Deque. Before reading the window extremum from the front, pop stale indices that lie outside the active window range $[i - W + 1, i]$:
-$$\text{While } (!D.\text{isEmpty}() \land D.\text{front}().\text{index} < i - W + 1) \implies D.\text{pop\_front}()$$
+Do not confuse this problem with another problem that uses a similar pattern.
+
+---
+
+## Problem
+
+Solve the standard **Design Circular Deque** problem.
+
+The primary problem-solving pattern is:
+
+**Circular Queue**
+
+---
+
+## Key Idea
+
+A circular deque allows insertion and deletion from both the front and rear while efficiently reusing array positions through circular indexing.
+
+### Core Invariant
+
+The deque maintains its elements in circular order while front and rear correctly identify both ends.
+
+The invariant explains why binary search can eliminate part of the search space without losing the correct answer.
 
 ---
 
 ## Brute Force Approach
 
-The brute force strategy scans the full sliding window range of size $W$ repeatedly for every new element added to the stream or array.
-
-1. Advance a sliding window pointer across the sequence.
-2. Iterate through all $W$ elements within the window to find the maximum, minimum, or sum.
+Use an array and shift elements whenever insertion or deletion occurs away from the end.
 
 ### Brute Force Complexity
-- **Time Complexity:** $O(N \cdot W)$ or $O(N^2)$ due to redundant sub-array scans.
-- **Space Complexity:** $O(1)$ or $O(W)$ auxiliary memory space.
+
+- **Time Complexity:** O(N) for operations that require shifting.
+- **Space Complexity:** O(1) auxiliary space unless otherwise required by the implementation.
 
 ---
 
 ## Optimized Approach
 
-The optimal Monotonic Deque / Queue algorithm processes elements in a single pass ($O(N)$), maintaining dynamic range optimums in $O(1)$ amortized time per element.
+### Algorithm Steps
 
-### Algorithmic Execution Steps:
-1. **Initialize Deque / Queue Structure:** Allocate a double-ended queue to store candidate indices or elements.
-2. **Process Sequence / Stream:** Iterate through array elements at index $i$.
-3. **Evict Out-of-Bound Front Elements:** Remove indices from the front of the deque if $D.\text{front}() \le i - W$.
-4. **Maintain Monotonicity at Back:** Pop elements from the back of the deque while they violate the monotonic invariant relative to `nums[i]`.
-5. **Push Current Index:** Push index $i$ to the back of the deque.
-6. **Record Window Result:** If $i \ge W - 1$, the front of the deque ($D.\text{front}()$) contains the optimum value for the current window.
+1. Maintain a fixed-size circular array.
+2. Track front and rear positions.
+3. Insert at the front using circular decrement.
+4. Insert at the rear using circular increment.
+5. Delete from the front.
+6. Delete from the rear.
+7. Track the current number of elements.
 
----
+### Why This Works
 
-## Hint 1
+The optimized solution works because it exploits the structure provided by:
 
-Do you need to extract the maximum or minimum element of a continuously moving sliding window in $O(1)$ time? A Monotonic Deque maintains window extrema dynamically.
+**Circular Queue**
 
----
-
-## Hint 2
-
-When maintaining a Monotonic Deque, store **indices** instead of raw values so you can check when an element falls out of the active sliding window boundary.
+The search space is reduced systematically while preserving the correct answer inside the remaining range.
 
 ---
 
-## Common Mistakes & Edge Cases
+## Hints
 
-- **Index Out-of-Bounds Eviction Omission:** Forgetting to check and pop expired indices from the front of the deque (`pop_front`), causing stale values from prior windows to contaminate results.
-- **Incorrect Monotonic Inequality:** Using $\le$ instead of $<$ (or vice-versa) when cleaning the back of the deque, leading to duplicate index accumulation or incorrect eviction.
-- **Failing to Wait for Window Formation:** Attempting to record results before the sliding window has reached full size ($i < W - 1$).
-- **Memory Leaks in Circular Buffers:** Incorrect modulo arithmetic (`index = (index + 1) % capacity`) in array-based circular queue implementations.
+### Hint 1
+
+How can both ends be updated using modulo?
+
+### Hint 2
+
+How can you detect whether the deque is full?
+
+---
+
+## Common Mistakes
+
+- Incorrect wraparound.
+- Incorrect full/empty conditions.
+- Confusing front insertion with rear insertion.
+
+---
+
+## Edge Cases
+
+- Empty deque.
+- Full deque.
+- Single element.
+- Insert from both ends.
+- Delete from both ends.
 
 ---
 
 ## Complexity Analysis
 
-- **Time Complexity:** $O(N)$ linear time. Each element or index is pushed onto and popped from the deque **at most once**, yielding $O(1)$ amortized time per step.
-- **Space Complexity:** $O(W)$ or $O(N)$ auxiliary memory space to store window indices inside the Deque or stream queue.
+### Time Complexity
+
+**O(1) per operation.**
+
+### Space Complexity
+
+**O(N)**
+
+---
+
+## Interview Explanation
+
+A concise interview explanation for **Design Circular Deque** is:
+
+> A circular deque allows insertion and deletion from both the front and rear while efficiently reusing array positions through circular indexing.
+
+When explaining this problem in an interview, focus on:
+
+1. Why binary search is applicable.
+2. What invariant is maintained.
+3. How the search boundaries change.
+4. Why half of the search space can be eliminated.
+5. The final time and space complexity.
+
+---
+
+## Retrieval Keywords
+
+- circular deque
+- deque
+- double ended queue
+- circular queue
+
+---
+
+## Problem Retrieval Identity
+
+Problem Name: Design Circular Deque
+
+Problem ID: design_circular_deque
+
+Topic: queue
+
+Pattern: Circular Queue
+
+Difficulty: Medium
+
+Primary Retrieval Entity:
+
+**Design Circular Deque**
+
+This document should be preferred when a user explicitly asks about:
+
+- circular deque
+- deque
+- double ended queue
+- circular queue
+
+Related concepts:
+
+- circular deque
+- deque
+- double ended queue
+- circular queue

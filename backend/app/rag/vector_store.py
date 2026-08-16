@@ -1,94 +1,273 @@
-import chromadb
-from chromadb.utils import embedding_functions
+# ============================================================
+# VECTOR STORE
+# PostgreSQL + pgvector
+# ============================================================
+
+from sqlalchemy import text
+
+from app.database.database import SessionLocal
 
 
-CHROMA_PATH = "chroma_db"
-COLLECTION_NAME = "dsa_knowledge"
+# ============================================================
+# CONFIGURATION
+# ============================================================
 
-EMBEDDING_MODEL = (
-    "sentence-transformers/all-MiniLM-L6-v2"
-)
+EMBEDDING_DIMENSION = 384
+
+TABLE_NAME = "knowledge_chunks"
 
 
-def create_chroma_collection():
+# ============================================================
+# DATABASE CONNECTION
+# ============================================================
 
-    client = chromadb.PersistentClient(
-        path=CHROMA_PATH
-    )
+def get_vector_store_session():
+    """
+    Return a SQLAlchemy database session.
 
-    embedding_function = (
-        embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name=EMBEDDING_MODEL
+    PostgreSQL is the actual vector store.
+    pgvector stores and searches the embeddings.
+    """
+
+    return SessionLocal()
+
+
+# ============================================================
+# CHECK PGVECTOR
+# ============================================================
+
+def check_pgvector():
+    """
+    Check whether the pgvector extension
+    is installed in PostgreSQL.
+    """
+
+    db = SessionLocal()
+
+    try:
+
+        result = db.execute(
+            text(
+                """
+                SELECT extname
+                FROM pg_extension
+                WHERE extname = 'vector'
+                """
+            )
+        ).scalar()
+
+        return result == "vector"
+
+    finally:
+
+        db.close()
+
+
+# ============================================================
+# COUNT STORED CHUNKS
+# ============================================================
+
+def get_chunk_count():
+    """
+    Return the total number of knowledge chunks
+    stored in PostgreSQL.
+    """
+
+    db = SessionLocal()
+
+    try:
+
+        result = db.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM knowledge_chunks
+                """
+            )
+        ).scalar()
+
+        return result or 0
+
+    finally:
+
+        db.close()
+
+
+# ============================================================
+# COUNT EMBEDDED CHUNKS
+# ============================================================
+
+def get_embedded_chunk_count():
+    """
+    Return the number of chunks that have
+    a non-null embedding.
+    """
+
+    db = SessionLocal()
+
+    try:
+
+        result = db.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM knowledge_chunks
+                WHERE embedding IS NOT NULL
+                """
+            )
+        ).scalar()
+
+        return result or 0
+
+    finally:
+
+        db.close()
+
+
+# ============================================================
+# VECTOR SIMILARITY SEARCH
+# ============================================================
+
+def similarity_search(
+    query_embedding,
+    limit=5,
+):
+    """
+    Perform vector similarity search using pgvector.
+
+    `<=>` is pgvector's cosine distance operator.
+
+    Smaller distance = more similar vector.
+    """
+
+    if not query_embedding:
+        return []
+
+    if len(query_embedding) != EMBEDDING_DIMENSION:
+        raise ValueError(
+            f"Expected embedding dimension "
+            f"{EMBEDDING_DIMENSION}, "
+            f"received {len(query_embedding)}."
         )
-    )
 
-    collection = client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        embedding_function=embedding_function,
-    )
+    db = SessionLocal()
 
-    return collection
+    try:
+
+        rows = db.execute(
+            text(
+                """
+                SELECT
+                    id,
+                    problem_id,
+                    section,
+                    section_title,
+                    chunk_index,
+                    content,
+                    source,
+
+                    embedding <=> CAST(
+                        :query_embedding AS vector
+                    ) AS distance
+
+                FROM knowledge_chunks
+
+                WHERE embedding IS NOT NULL
+
+                ORDER BY
+                    embedding <=> CAST(
+                        :query_embedding AS vector
+                    )
+
+                LIMIT :limit
+                """
+            ),
+            {
+                "query_embedding": str(
+                    query_embedding
+                ),
+                "limit": int(limit),
+            },
+        ).fetchall()
+
+        return rows
+
+    finally:
+
+        db.close()
 
 
-def store_documents(documents):
+# ============================================================
+# VECTOR STORE INFORMATION
+# ============================================================
 
-    collection = create_chroma_collection()
+def get_vector_store_info():
 
-    ids = []
-    texts = []
-    metadatas = []
+    return {
+        "database": "PostgreSQL",
+        "vector_extension": "pgvector",
+        "table": TABLE_NAME,
+        "embedding_dimension": EMBEDDING_DIMENSION,
+        "similarity_metric": "cosine distance",
+    }
 
-    for index, document in enumerate(documents):
 
-        problem_id = document.metadata["problem_id"]
+# ============================================================
+# MANUAL TEST
+# ============================================================
 
-        section = document.metadata.get(
-            "section",
-            "unknown",
+if __name__ == "__main__":
+
+    print()
+    print("==============================================")
+    print(" POSTGRESQL + PGVECTOR VECTOR STORE")
+    print("==============================================")
+
+    print()
+    print("Vector store information:")
+
+    info = get_vector_store_info()
+
+    for key, value in info.items():
+
+        print(
+            f"{key}: {value}"
         )
 
-        chunk_index = document.metadata.get(
-            "chunk_index",
-            index,
+    print()
+    print("Checking pgvector...")
+
+    if check_pgvector():
+
+        print(
+            "pgvector extension: OK"
         )
 
-        document_id = (
-            f"{problem_id}"
-            f"_{section}"
-            f"_{chunk_index}"
+    else:
+
+        print(
+            "pgvector extension: NOT FOUND"
         )
 
-        ids.append(document_id)
+    print()
+    print("Checking knowledge chunks...")
 
-        texts.append(
-            document.page_content
+    try:
+
+        total = get_chunk_count()
+
+        embedded = get_embedded_chunk_count()
+
+        print(
+            f"Total chunks: {total}"
         )
 
-        metadata = {}
+        print(
+            f"Chunks with embeddings: {embedded}"
+        )
 
-        for key, value in document.metadata.items():
+    except Exception as error:
 
-            # Chroma metadata values must be
-            # primitive types.
-            if isinstance(value, list):
-                metadata[key] = ",".join(
-                    str(item)
-                    for item in value
-                )
-            else:
-                metadata[key] = str(value)
-
-        metadatas.append(metadata)
-
-    collection.add(
-        ids=ids,
-        documents=texts,
-        metadatas=metadatas,
-    )
-
-    print(
-        f"Stored {len(documents)} chunks "
-        f"in ChromaDB."
-    )
-
-    return collection
+        print(
+            f"Database error: {error}"
+        )

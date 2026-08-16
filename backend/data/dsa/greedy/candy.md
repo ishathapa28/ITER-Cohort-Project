@@ -1,83 +1,183 @@
-# 135. Candy
+# Candy
 
-## Problem Description
+Problem ID: candy
 
-Solve standard LeetCode problem **135: Candy** (Hard).
+Title: Candy
 
-Analyze the problem space and construct an optimal **Greedy Strategy** by making local optimal choices at each step to guarantee a global maximum or minimum outcome.
+Difficulty: Hard
 
----
+Topic: greedy
 
-## Pattern
-
-**Two-Pass Left-to-Right & Right-to-Left Sweep**
+Pattern: **Greedy Two Pass**
 
 ---
 
-## Greedy Choice Property & Optimal Substructure
+## Problem Identity
 
-To prove that a Greedy strategy works for this problem, establish these structural guarantees:
+This document is specifically about:
 
-### 1. Local Greedy Choice
-At every step or transition, choose the locally optimal choice based on current state constraints:
-- **Choice Criterion:** Pick the choice that maximizes local gain or minimizes immediate consumption.
-- **Irreversibility:** Ensure that taking this local decision never invalidates reaching an overall optimal solution.
+**Candy**
 
-### 2. Optimal Substructure
-Demonstrate that after making a greedy choice, the remaining subproblem retains the exact same structural properties:
-$$\text{Optimal}(S) = \text{Greedy Choice} + \text{Optimal}(S - \text{choice})$$
+This knowledge chunk belongs to:
+
+**greedy**
+
+Do not confuse this problem with another problem that uses a similar pattern.
+
+---
+
+## Problem
+
+Solve the standard **Candy** problem.
+
+The primary problem-solving pattern is:
+
+**Greedy Two Pass**
+
+---
+
+## Key Idea
+
+Each child must have at least one candy, and a child with a higher rating than a neighbor must have more candies. Process ratings from left to right and right to left to satisfy both directions.
+
+### Core Invariant
+
+After the left-to-right pass, every child satisfies the rating condition relative to the left neighbor. The right-to-left pass adds the constraints from the right without breaking the left-side requirement.
+
+The invariant explains why binary search can eliminate part of the search space without losing the correct answer.
 
 ---
 
 ## Brute Force Approach
 
-The brute force strategy evaluates all combinations, permutations, or state decisions without leveraging local greedy ordering.
-
-1. Recursively generate or simulate all valid decision branches.
-2. Search through the entire solution space to find the target optimal value.
+Repeatedly increase candy counts for children violating the neighbor conditions until all constraints are satisfied.
 
 ### Brute Force Complexity
-- **Time Complexity:** $O(2^n)$, $O(n^3)$, or $O(n!)$ due to exhaustive combinations.
-- **Space Complexity:** $O(n)$ recursion tree or state storage space.
+
+- **Time Complexity:** Can require multiple passes and may become O(N^2) in straightforward implementations.
+- **Space Complexity:** O(1) auxiliary space unless otherwise required by the implementation.
 
 ---
 
 ## Optimized Approach
 
-The optimal Greedy approach processes elements according to an optimal ordering (e.g., sorting by end-times, maintaining a priority queue, or executing a single-pass sweep).
+### Algorithm Steps
 
-### Algorithmic Execution Steps:
-1. **Preprocessing / Sorting:** Sort the input elements (or insert them into a Heap/Priority Queue) based on the greedy choice invariant.
-2. **Initialize State Trackers:** Create scalar variables or pointers (e.g., `current_end`, `max_reach`, `accumulated_sum`).
-3. **Iterative Greedy Selection:** Iterate through the sorted elements or data stream:
-   - Check if current element meets greedy criteria.
-   - Update global running metrics and advance local bounds.
-4. **Final Return:** Return the accumulated minimum/maximum count or formatted optimal structure.
+1. Initialize every child with one candy.
+2. Traverse from left to right.
+3. If rating[i] is greater than rating[i-1], increase candies[i].
+4. Traverse from right to left.
+5. If rating[i] is greater than rating[i+1], ensure candies[i] is greater than candies[i+1].
+6. Use the maximum of the existing value and the right-side requirement.
+7. Return the total candies.
 
----
+### Why This Works
 
-## Hint 1
+The optimized solution works because it exploits the structure provided by:
 
-Can you sort the input based on a key property (such as interval end time, ratio, or deadline) so that local choices line up sequentially?
+**Greedy Two Pass**
 
----
-
-## Hint 2
-
-Does a locally optimal choice ever prevent a globally optimal solution? If not, a single pass or Priority Queue can replace nested loops.
+The search space is reduced systematically while preserving the correct answer inside the remaining range.
 
 ---
 
-## Common Mistakes & Edge Cases
+## Hints
 
-- **Flawed Greedy Choice Assumption:** Making a greedy choice that fails on non-standard inputs (e.g., choosing highest denomination coins in non-canonical coin systems).
-- **Incorrect Sorting Order:** Sorting by start boundary instead of end boundary when resolving interval overlaps.
-- **Priority Queue Out-of-Sync:** Failing to dynamically update or clear invalid elements from a Heap during execution.
-- **Tie-Breaking Edge Cases:** Neglecting secondary sorting constraints when primary properties match.
+### Hint 1
+
+Why is one direction not enough?
+
+### Hint 2
+
+Can you satisfy the left neighbor condition first and then the right neighbor condition?
+
+---
+
+## Common Mistakes
+
+- Using only one traversal.
+- Replacing instead of taking the maximum during the second pass.
+- Forgetting that every child must receive at least one candy.
+- Comparing ratings in the wrong direction.
+
+---
+
+## Edge Cases
+
+- One child.
+- All ratings equal.
+- Strictly increasing ratings.
+- Strictly decreasing ratings.
+- Peak in the middle.
 
 ---
 
 ## Complexity Analysis
 
-- **Time Complexity:** $O(n)$ for single-pass strategies, or $O(n \log n)$ when sorting or processing via Priority Queue / Heap operations.
-- **Space Complexity:** $O(1)$ auxiliary space for in-place sweeps, or $O(n)$ to store sorted arrays/heaps.
+### Time Complexity
+
+**O(N)**
+
+### Space Complexity
+
+**O(N)**
+
+---
+
+## Interview Explanation
+
+A concise interview explanation for **Candy** is:
+
+> Each child must have at least one candy, and a child with a higher rating than a neighbor must have more candies. Process ratings from left to right and right to left to satisfy both directions.
+
+When explaining this problem in an interview, focus on:
+
+1. Why binary search is applicable.
+2. What invariant is maintained.
+3. How the search boundaries change.
+4. Why half of the search space can be eliminated.
+5. The final time and space complexity.
+
+---
+
+## Retrieval Keywords
+
+- candy
+- candy distribution
+- greedy two pass
+- ratings
+- minimum candies
+
+---
+
+## Problem Retrieval Identity
+
+Problem Name: Candy
+
+Problem ID: candy
+
+Topic: greedy
+
+Pattern: Greedy Two Pass
+
+Difficulty: Hard
+
+Primary Retrieval Entity:
+
+**Candy**
+
+This document should be preferred when a user explicitly asks about:
+
+- candy
+- candy distribution
+- greedy two pass
+- ratings
+- minimum candies
+
+Related concepts:
+
+- candy
+- candy distribution
+- greedy two pass
+- ratings
+- minimum candies

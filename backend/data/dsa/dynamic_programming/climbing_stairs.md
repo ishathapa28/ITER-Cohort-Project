@@ -1,85 +1,180 @@
-# 70. Climbing Stairs
+# Climbing Stairs
 
-## Problem Description
+Problem ID: climbing_stairs
 
-Solve standard LeetCode problem **70: Climbing Stairs** (Easy).
+Title: Climbing Stairs
 
-Formulate an optimal **Dynamic Programming** solution by establishing clear state representations, recursive transition equations, boundary base cases, and state space optimizations.
+Difficulty: Easy
 
----
+Topic: dynamic_programming
 
-## Pattern
-
-**Fibonacci Sequence 1D DP**
+Pattern: **1D DP**
 
 ---
 
-## Recursive State & Transition Formulation
+## Problem Identity
 
-To solve this problem efficiently using Dynamic Programming, define the state and transitions explicitly:
+This document is specifically about:
 
-### 1. State Definition
-Define $dp[i]$ (or $dp[i][j]$) as:
-- **$dp[i]$**: The optimal value, boolean reachability, or total count for subproblem considering elements up to index $i$.
-- **$dp[i][j]$**: The optimal solution over the interval $[i, j]$ or state evaluation using $i$ elements with $j$ constraints.
+**Climbing Stairs**
 
-### 2. State Transition Equation
-Express the optimal solution of a larger subproblem in terms of smaller subproblems:
-$$dp[i] = \text{optimize} \Big( dp[i - 1] + \text{cost}, \quad dp[i - 2] + \text{value} \Big)$$
+This knowledge chunk belongs to:
 
-### 3. Base Cases
-- Establish base initialization states for empty inputs, zero bounds, or single element states:
-  $$dp[0] = 0, \quad dp[1] = \text{initial\_value}$$
+**dynamic_programming**
+
+Do not confuse this problem with another problem that uses a similar pattern.
+
+---
+
+## Problem
+
+Solve the standard **Climbing Stairs** problem.
+
+The primary problem-solving pattern is:
+
+**1D DP**
+
+---
+
+## Key Idea
+
+To reach step n, the last move must come from either step n-1 or step n-2. Therefore the number of ways to reach n is the sum of the ways to reach n-1 and n-2.
+
+### Core Invariant
+
+At every step i, the stored state represents the number of distinct ways to reach exactly step i.
+
+The invariant explains why binary search can eliminate part of the search space without losing the correct answer.
 
 ---
 
 ## Brute Force Approach
 
-The brute force strategy recursively explores all possible decision branches without saving or caching calculated results (overlapping subproblems).
-
-1. Generate all recursive decision paths across choices.
-2. Evaluate validity or compute metrics from leaf states.
+Use recursion to try taking either one step or two steps at every position. This creates many repeated subproblems.
 
 ### Brute Force Complexity
-- **Time Complexity:** $O(2^n)$ or $O(n!)$ due to repeating computation trees.
-- **Space Complexity:** $O(n)$ recursion stack depth.
+
+- **Time Complexity:** O(2^N)
+- **Space Complexity:** O(1) auxiliary space unless otherwise required by the implementation.
 
 ---
 
 ## Optimized Approach
 
-The optimal DP approach solves subproblems bottom-up (iterative) or top-down (recursive memoization) to avoid duplicate work.
+### Algorithm Steps
 
-### Algorithmic Execution Steps:
-1. **Define Table/State Variables:** Allocate $dp$ table initialized with identity elements (e.g., $0$, $\infty$, $-\infty$, or `False`).
-2. **Apply Base Cases:** Pre-fill initial index entries corresponding to boundary conditions.
-3. **Iterate & Fill State Space:** Loop through subproblems in topological dependencies (bottom-up execution).
-4. **Optimize Space (Rolling Array):** If current state depends only on $dp[i-1]$ or $dp[i-2]$, compress higher-dimensional arrays to linear scalar variables.
+1. Define dp[i] as the number of ways to reach step i.
+2. Initialize dp[0] = 1 and dp[1] = 1.
+3. For every step from 2 to n, calculate dp[i] = dp[i - 1] + dp[i - 2].
+4. Return dp[n].
+5. The array can be optimized to two variables because only the previous two states are required.
 
----
+### Why This Works
 
-## Hint 1
+The optimized solution works because it exploits the structure provided by:
 
-Can you break down the problem into smaller overlapping subproblems where the choice at step $i$ depends only on precomputed results of step $i-1$ or $i-2$?
+**1D DP**
 
----
-
-## Hint 2
-
-Are you recomputing identical recursive branches? Can a 1D or 2D memoization cache prune duplicate subtrees?
+The search space is reduced systematically while preserving the correct answer inside the remaining range.
 
 ---
 
-## Common Mistakes & Edge Cases
+## Hints
 
-- **Off-by-One Array Alignment:** Incorrect mapping between $0$-indexed input arrays and $1$-indexed $dp$ tables.
-- **State Space Memory Limits:** Allocating full $N \times M$ matrices when a $1\text{D}$ rolling array suffices.
-- **Initialization Pitfalls:** Initializing min-maximization DP entries with `0` instead of $\infty$ or $-\infty$.
-- **Subproblem Dependency Order:** Iterating nested loops in an order that reads uncomputed DP states.
+### Hint 1
+
+What are the possible ways to reach the current step?
+
+### Hint 2
+
+Can the answer for step n be built from the answers for n-1 and n-2?
+
+---
+
+## Common Mistakes
+
+- Using the wrong base cases.
+- Forgetting that the final move can be either one step or two steps.
+- Using exponential recursion without memoization.
+- Confusing number of ways with minimum number of steps.
+
+---
+
+## Edge Cases
+
+- n = 0.
+- n = 1.
+- n = 2.
+- Large n.
 
 ---
 
 ## Complexity Analysis
 
-- **Time Complexity:** $O(n)$ or $O(n^2)$ total computed states (each state computed in $O(1)$ time).
-- **Space Complexity:** $O(n)$ or $O(n^2)$ memory space (compressible to $O(1)$ or $O(n)$ via rolling space optimization).
+### Time Complexity
+
+**O(N)**
+
+### Space Complexity
+
+**O(1) using the space-optimized two-variable approach.**
+
+---
+
+## Interview Explanation
+
+A concise interview explanation for **Climbing Stairs** is:
+
+> To reach step n, the last move must come from either step n-1 or step n-2. Therefore the number of ways to reach n is the sum of the ways to reach n-1 and n-2.
+
+When explaining this problem in an interview, focus on:
+
+1. Why binary search is applicable.
+2. What invariant is maintained.
+3. How the search boundaries change.
+4. Why half of the search space can be eliminated.
+5. The final time and space complexity.
+
+---
+
+## Retrieval Keywords
+
+- climbing stairs
+- 1D DP
+- dynamic programming
+- fibonacci pattern
+- ways to reach
+
+---
+
+## Problem Retrieval Identity
+
+Problem Name: Climbing Stairs
+
+Problem ID: climbing_stairs
+
+Topic: dynamic_programming
+
+Pattern: 1D DP
+
+Difficulty: Easy
+
+Primary Retrieval Entity:
+
+**Climbing Stairs**
+
+This document should be preferred when a user explicitly asks about:
+
+- climbing stairs
+- 1D DP
+- dynamic programming
+- fibonacci pattern
+- ways to reach
+
+Related concepts:
+
+- climbing stairs
+- 1D DP
+- dynamic programming
+- fibonacci pattern
+- ways to reach

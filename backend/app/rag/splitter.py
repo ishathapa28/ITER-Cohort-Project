@@ -4,7 +4,6 @@ from typing import List
 from langchain_core.documents import Document
 
 
-# Sections that we want to preserve as semantic units.
 SECTION_PATTERN = re.compile(
     r"^##\s+(.+?)\s*$",
     re.MULTILINE,
@@ -13,12 +12,11 @@ SECTION_PATTERN = re.compile(
 
 def normalize_section_name(section_name: str) -> str:
     """
-    Convert a Markdown section title into a normalized
-    metadata-friendly name.
+    Convert a Markdown section title into a metadata-friendly name.
 
     Example:
-        'Brute Force Approach'
-        -> 'brute_force_approach'
+        Optimized Approach
+        -> optimized_approach
     """
 
     section_name = section_name.strip().lower()
@@ -36,11 +34,18 @@ def split_markdown_sections(
     document: Document,
 ) -> List[Document]:
     """
-    Split one DSA problem into semantic section-level chunks.
+    Split a DSA problem into self-contained semantic chunks.
 
-    Each ## section becomes a separate LangChain Document.
+    Every chunk includes:
+        - Problem title
+        - Problem ID
+        - Difficulty
+        - Pattern
+        - Section name
+        - Section content
 
-    Metadata from the original document is preserved.
+    This prevents generic sections from losing their
+    problem context during embedding.
     """
 
     content = document.page_content.strip()
@@ -48,38 +53,91 @@ def split_markdown_sections(
     if not content:
         return []
 
-    matches = list(SECTION_PATTERN.finditer(content))
+    matches = list(
+        SECTION_PATTERN.finditer(content)
+    )
 
-    # If the document does not contain any ## sections,
-    # keep the complete document as one chunk.
-    if not matches:
-        return [
-            Document(
-                page_content=content,
-                metadata={
-                    **document.metadata,
-                    "section": "full_document",
-                },
-            )
-        ]
+    metadata = document.metadata
+
+    problem_id = metadata.get(
+        "problem_id",
+        "unknown",
+    )
+
+    title = metadata.get(
+        "title",
+        "Unknown Problem",
+    )
+
+    difficulty = metadata.get(
+        "difficulty",
+        "unknown",
+    )
+
+    pattern = metadata.get(
+        "pattern",
+        "unknown",
+    )
+
+    topic = metadata.get(
+        "topic",
+        "unknown",
+    )
 
     chunks: List[Document] = []
 
-    # Content before the first ## section.
-    introduction = content[:matches[0].start()].strip()
+    # --------------------------------------------------
+    # Handle content before first ## section
+    # --------------------------------------------------
 
+    introduction = content[
+        :matches[0].start()
+    ].strip() if matches else content
+
+    # Do not create useless chunks containing only
+    # the "# Problem Name" heading.
+    #
+    # We only keep introduction content if it has
+    # meaningful information.
     if introduction:
-        chunks.append(
-            Document(
-                page_content=introduction,
-                metadata={
-                    **document.metadata,
-                    "section": "introduction",
-                },
-            )
-        )
 
-    # Extract every ## section.
+        introduction_without_heading = re.sub(
+            r"^#\s+.+?\n*",
+            "",
+            introduction,
+            count=1,
+            flags=re.MULTILINE,
+        ).strip()
+
+        if introduction_without_heading:
+
+            chunk_text = f"""Problem: {title}
+Problem ID: {problem_id}
+Difficulty: {difficulty}
+Topic: {topic}
+Pattern: {pattern}
+
+Section: Introduction
+
+{introduction_without_heading}
+"""
+
+            chunks.append(
+                Document(
+                    page_content=chunk_text.strip(),
+                    metadata={
+                        **metadata,
+                        "section": "introduction",
+                        "section_title": "Introduction",
+                        "chunk_index": 0,
+                    },
+                )
+            )
+
+    # --------------------------------------------------
+    # Extract ## sections
+    # --------------------------------------------------
+
     for index, match in enumerate(matches):
 
         section_title = match.group(1).strip()
@@ -87,8 +145,13 @@ def split_markdown_sections(
         section_start = match.end()
 
         if index + 1 < len(matches):
-            section_end = matches[index + 1].start()
+
+            section_end = matches[
+                index + 1
+            ].start()
+
         else:
+
             section_end = len(content)
 
         section_content = content[
@@ -98,26 +161,48 @@ def split_markdown_sections(
         if not section_content:
             continue
 
-        normalized_section = normalize_section_name(
-            section_title
+        normalized_section = (
+            normalize_section_name(
+                section_title
+            )
         )
 
-        # Keep the section heading together with its content.
-        chunk_text = (
-            f"## {section_title}\n\n"
-            f"{section_content}"
-        )
+        # --------------------------------------------------
+        # Remove redundant horizontal separators
+        # --------------------------------------------------
+
+        section_content = re.sub(
+            r"^\s*---\s*$",
+            "",
+            section_content,
+            flags=re.MULTILINE,
+        ).strip()
+
+        # --------------------------------------------------
+        # Build self-contained chunk
+        # --------------------------------------------------
+
+        chunk_text = f"""Problem: {title}
+Problem ID: {problem_id}
+Difficulty: {difficulty}
+Topic: {topic}
+Pattern: {pattern}
+
+Section: {section_title}
+
+{section_content}
+"""
 
         chunk_metadata = {
-            **document.metadata,
+            **metadata,
             "section": normalized_section,
             "section_title": section_title,
-            "chunk_index": index,
+            "chunk_index": index + 1,
         }
 
         chunks.append(
             Document(
-                page_content=chunk_text,
+                page_content=chunk_text.strip(),
                 metadata=chunk_metadata,
             )
         )
@@ -129,15 +214,22 @@ def split_documents(
     documents: List[Document],
 ) -> List[Document]:
     """
-    Split all unique DSA documents into semantic chunks.
+    Split all DSA documents into self-contained
+    semantic chunks.
     """
 
     all_chunks: List[Document] = []
 
     for document in documents:
 
-        chunks = split_markdown_sections(document)
+        chunks = split_markdown_sections(
+            document
+        )
 
         all_chunks.extend(chunks)
+
+    print(
+        f"Created {len(all_chunks)} semantic chunks."
+    )
 
     return all_chunks
