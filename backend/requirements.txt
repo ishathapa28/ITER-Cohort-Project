@@ -15,6 +15,7 @@ python-dotenv>=1.0,<2.0
 sqlalchemy>=2.0,<3.0
 psycopg[binary]>=3.2,<4.0
 alembic>=1.13,<2.0
+pgvector>=0.3.0,<1.0
 
 # ---------- AUTHENTICATION ----------
 firebase-admin>=6.5,<7.0
@@ -28,7 +29,8 @@ slowapi>=0.1.9,<1.0
 redis>=5.0,<6.0
 
 # ---------- RAG / VECTOR DATABASE ----------
-chromadb==0.6.3
+# PostgreSQL + pgvector
+# No ChromaDB
 
 # ---------- LANGCHAIN ----------
 langchain>=0.3,<1.0
