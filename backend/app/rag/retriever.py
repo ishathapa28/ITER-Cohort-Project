@@ -269,7 +269,6 @@ def related_problem_penalty(
     query_normalized = normalize_text(query)
 
     candidate_id = normalize_text(candidate_problem_id)
-    candidate_title = remove_problem_prefix(candidate_title)
 
     penalty = 0.0
 
@@ -553,6 +552,266 @@ def query_concept_score(
     return score
 
 # ============================================================
+# CODE INTENT SCORE
+# ============================================================
+
+def query_code_intent_score(
+    query: str,
+    title: str,
+    problem_id: str,
+    section: str,
+    content: str,
+) -> float:
+    """
+    Detect whether the user is asking for code/implementation
+    and rerank candidates accordingly.
+
+    Example:
+
+        "Give me Java code for binary search"
+
+    should prefer implementation-oriented chunks for
+    the binary-search problem rather than unrelated Java
+    problems such as Graph Representation in Java.
+
+    Lower score = better candidate.
+    """
+
+    query_normalized = normalize_text(query)
+
+    title_normalized = normalize_text(title)
+    problem_normalized = normalize_text(problem_id)
+    section_normalized = normalize_text(section)
+    content_normalized = content.lower()
+
+    score = 0.0
+
+    # --------------------------------------------------------
+    # Detect code-related intent
+    # --------------------------------------------------------
+
+    code_terms = [
+        "code",
+        "java code",
+        "write code",
+        "give code",
+        "provide code",
+        "implementation",
+        "implement",
+        "coding",
+        "solution",
+        "program",
+        "programming",
+    ]
+
+    is_code_query = any(
+        term in query_normalized
+        for term in code_terms
+    )
+
+    if not is_code_query:
+        return score
+
+    # --------------------------------------------------------
+    # Implementation-related sections
+    # --------------------------------------------------------
+
+    if "implementation" in section_normalized:
+        score -= 0.18
+
+    elif "code" in section_normalized:
+        score -= 0.18
+
+    elif "java solution" in section_normalized:
+        score -= 0.18
+
+    elif "solution" in section_normalized:
+        score -= 0.14
+
+    elif "optimized approach" in section_normalized:
+        score -= 0.08
+
+    elif "algorithm" in section_normalized:
+        score -= 0.06
+
+    elif "key idea" in section_normalized:
+        score -= 0.03
+
+    # --------------------------------------------------------
+    # Java-specific intent
+    # --------------------------------------------------------
+
+    if "java" in query_normalized:
+
+        if "public class" in content_normalized:
+            score -= 0.04
+
+        if "public static" in content_normalized:
+            score -= 0.03
+
+        if "int[]" in content_normalized:
+            score -= 0.03
+
+        # Only give a small boost for Java in the section.
+        if "java" in section_normalized:
+            score -= 0.05
+
+    # --------------------------------------------------------
+    # Prefer actual implementation/code content
+    # --------------------------------------------------------
+
+    implementation_terms = [
+        "public class",
+        "public static",
+        "int[]",
+        "while",
+        "for",
+        "return",
+        "int mid",
+        "int low",
+        "int high",
+        "implementation",
+        "code",
+    ]
+
+    implementation_matches = sum(
+        1
+        for term in implementation_terms
+        if term in content_normalized
+    )
+
+    if implementation_matches > 0:
+
+        score -= min(
+            0.10,
+            0.02 * implementation_matches
+        )
+
+    # ========================================================
+    # 5. BINARY SEARCH CODE INTENT
+    # ========================================================
+
+    # If the query explicitly asks for binary-search code,
+    # favor binary-search implementation content.
+
+    if "binary search" in query_normalized:
+
+        binary_search_terms = [
+            "binary search",
+            "int low",
+            "int high",
+            "int mid",
+            "mid =",
+            "low =",
+            "high =",
+        ]
+
+        binary_matches = sum(
+            1
+            for term in binary_search_terms
+            if term in content_normalized
+        )
+
+        if binary_matches > 0:
+            score -= min(
+                0.14,
+                0.025 * binary_matches
+            )
+    return score
+
+
+
+# ============================================================
+# BINARY SEARCH / CONCEPT ALIAS SCORE
+# ============================================================
+
+def concept_alias_score(
+    query: str,
+    title: str,
+    problem_id: str,
+    content: str,
+) -> float:
+    """
+    Handle common conceptual relationships where the user's
+    query may describe an algorithm rather than the exact
+    problem title.
+
+    Example:
+
+        Query:
+            "binary search"
+
+        Candidate:
+            "Search X in Sorted Array"
+
+    This is a strong conceptual match even though
+    "binary search" may not appear in the title itself.
+    """
+
+    query_normalized = normalize_text(query)
+
+    title_normalized = normalize_text(title)
+
+    problem_normalized = normalize_text(problem_id)
+    content_normalized = normalize_text(content)
+
+    score = 0.0
+
+    # ========================================================
+    # BINARY SEARCH
+    # ========================================================
+
+    if "binary search" in query_normalized:
+
+        # Direct binary-search mention
+        if "binary search" in title_normalized:
+            score -= 0.18
+
+        elif "binary search" in problem_normalized:
+            score -= 0.16
+
+        elif "binary search" in content_normalized:
+            score -= 0.12
+
+        # "Search X in Sorted Array" is a canonical
+        # binary-search problem in this knowledge base.
+        if "search x in sorted array" in title_normalized:
+            score -= 0.25
+
+        if "search_x_in_sorted_array" in problem_normalized:
+            score -= 0.25
+
+    # ========================================================
+    # TWO POINTER
+    # ========================================================
+
+    if (
+        "two pointer" in query_normalized
+        or "two pointers" in query_normalized
+    ):
+
+        if "two pointer" in title_normalized:
+            score -= 0.15
+
+        elif "two pointer" in content_normalized:
+            score -= 0.10
+
+    # ========================================================
+    # SLIDING WINDOW
+    # ========================================================
+
+    if "sliding window" in query_normalized:
+
+        if "sliding window" in title_normalized:
+            score -= 0.15
+
+        elif "sliding window" in content_normalized:
+            score -= 0.10
+
+    return score
+
+
+# ============================================================
 # SIMILARITY SEARCH
 # ============================================================
 
@@ -667,9 +926,9 @@ def similarity_search(
             # ==================================================
 
             exact_problem_match = problem_name_matches(
-                query,
-                row.title,
-                row.problem_id,
+                query=query,
+                title=row.title,
+                problem_id=row.problem_id,
             )
 
             if exact_problem_match:
@@ -765,14 +1024,37 @@ def similarity_search(
                 content=row.content,
             )
 
+            # =================================================
+            # H. CODE INTENT MATCH
+            # =================================================
+
+            score += query_code_intent_score(
+                query=query,
+                title=row.title,
+                problem_id=row.problem_id,
+                section=row.section,
+                content=row.content,
+            )
+
+            # =================================================
+            # I. CONCEPT ALIAS MATCH
+            # =================================================
+
+            score += concept_alias_score(
+                query=query,
+                title=row.title,
+                problem_id=row.problem_id,
+                content=row.content,
+            )
+
             # ==================================================
             # G. RELATED PROBLEM PENALTY
             # ==================================================
 
             score += related_problem_penalty(
-                query,
-                row.problem_id,
-                row.title,
+                query=query,
+                candidate_problem_id=row.problem_id,
+                candidate_title=row.title,
             )
 
             # ==================================================

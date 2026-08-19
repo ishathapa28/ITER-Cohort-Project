@@ -44,8 +44,6 @@ For an array of positive integers, expand the window until its sum reaches the t
 
 The current window is adjusted so that when its sum reaches the target, shrinking from the left finds the smallest valid window ending at right.
 
-The invariant explains why binary search can eliminate part of the search space without losing the correct answer.
-
 ---
 
 ## Brute Force Approach
@@ -131,11 +129,12 @@ A concise interview explanation for **Minimum Size Subarray Sum** is:
 
 When explaining this problem in an interview, focus on:
 
-1. Why binary search is applicable.
-2. What invariant is maintained.
-3. How the search boundaries change.
-4. Why half of the search space can be eliminated.
-5. The final time and space complexity.
+1. The core idea behind the problem.
+2. The data structure or algorithm being used.
+3. The important steps of the approach.
+4. Why the approach works.
+5. The time and space complexity.
+6. Common edge cases and mistakes.
 
 ---
 

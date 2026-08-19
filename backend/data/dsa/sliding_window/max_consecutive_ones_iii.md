@@ -44,8 +44,6 @@ Maintain a window containing at most K zeros. Zeros inside the window can be fli
 
 The current window contains at most K zeros.
 
-The invariant explains why binary search can eliminate part of the search space without losing the correct answer.
-
 ---
 
 ## Brute Force Approach
@@ -130,11 +128,12 @@ A concise interview explanation for **Max Consecutive Ones III** is:
 
 When explaining this problem in an interview, focus on:
 
-1. Why binary search is applicable.
-2. What invariant is maintained.
-3. How the search boundaries change.
-4. Why half of the search space can be eliminated.
-5. The final time and space complexity.
+1. The core idea behind the problem.
+2. The data structure or algorithm being used.
+3. The important steps of the approach.
+4. Why the approach works.
+5. The time and space complexity.
+6. Common edge cases and mistakes.
 
 ---
 

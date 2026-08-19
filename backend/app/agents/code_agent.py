@@ -1,4 +1,4 @@
-from app.rag.service import ask_dsa_coach
+from app.rag.generator import generate_answer
 
 
 def run_code_agent(
@@ -8,12 +8,13 @@ def run_code_agent(
     code: str = "",
     problem: dict | None = None,
     conversation: list | None = None,
+    retrieved_documents: list | None = None,
 ):
     """
     Code Analysis Agent.
 
-    Reviews the user's code using the DSA knowledge
-    retrieved from the RAG pipeline.
+    Uses the documents retrieved by the LangGraph
+    RAG retrieval node to analyze the user's code.
     """
 
     instruction = """
@@ -35,12 +36,16 @@ Do not unnecessarily rewrite the entire solution.
 
 If the code is missing, clearly tell the user
 that code is required for a proper review.
+
+Respect the programming language provided by the user.
+Do not assume the language is Java.
 """
 
     enhanced_query = f"""
-You are the code analysis agent inside a multi-agent DSA Coach.
+You are the Code Analysis Agent inside a multi-agent DSA Coach.
 
 Your instruction:
+
 {instruction}
 
 User question:
@@ -62,7 +67,10 @@ Use the retrieved DSA knowledge as the primary source
 for your answer.
 """
 
-    return ask_dsa_coach(
+    documents = retrieved_documents or []
+
+    return generate_answer(
         query=enhanced_query,
-        top_k=5,
+        documents=documents,
+        
     )

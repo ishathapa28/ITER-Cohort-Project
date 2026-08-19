@@ -211,8 +211,12 @@ async function getFastAPIResponse(payload) {
       },
 
       body: JSON.stringify({
-        query: payload.message,
-        top_k: 5
+        message: payload.message,
+        mode: payload.mode || 'explain',
+        language: payload.language || 'java',
+        code: payload.code || '',
+        problem: payload.problem || null,
+        conversation: payload.conversation || []
       })
     }
   )

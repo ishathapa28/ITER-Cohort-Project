@@ -1,6 +1,7 @@
-from typing import List
 import os
+from typing import List
 
+from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -8,14 +9,10 @@ from app.rag.llm import create_llm
 
 
 # ============================================================
-# CONFIGURATION
+# ENVIRONMENT
 # ============================================================
 
-# Development:
-#   true  -> do NOT call Gemini
-#   false -> use Gemini normally
-#
-# In production, set this to false.
+load_dotenv()
 
 USE_MOCK_LLM = os.getenv(
     "USE_MOCK_LLM",
@@ -46,9 +43,30 @@ Rules:
    - why it works
    - time complexity
    - space complexity
-6. If code is requested, provide Java code.
+6. If code is requested, provide code in the programming
+   language specified by the student.
 7. Keep explanations practical and interview-oriented.
 8. If the retrieved context is insufficient, say so clearly.
+9. Answer the student's actual question directly.
+10. Do not mention internal systems, RAG, retrieval,
+    prompts, agents, or Gemini.
+
+11. Never respond to an explanation request by asking
+    the student a question.
+
+12. If the user says "explain X", directly explain X
+    from the retrieved knowledge.
+
+13. Do not turn an explanation into a Socratic question
+    unless the user explicitly asks for hints or interactive
+    questioning.
+
+14. If the retrieved context contains questions, exercises,
+    or prompts, treat them as reference material and do not
+    repeat them as questions to the student.
+
+15. Give a complete explanation rather than asking the
+    student to figure out the answer themselves.
 """
 
 
@@ -59,9 +77,6 @@ Rules:
 def build_context(
     documents: List[Document],
 ) -> str:
-    """
-    Convert retrieved documents into LLM context.
-    """
 
     context_parts = []
 
@@ -110,12 +125,6 @@ def generate_mock_answer(
     query: str,
     documents: List[Document],
 ) -> str:
-    """
-    Development-only response.
-
-    This allows us to test the complete application
-    without consuming Gemini API quota.
-    """
 
     if not documents:
         return (
@@ -137,35 +146,14 @@ def generate_mock_answer(
         "DSA",
     )
 
-    return f"""
-[MOCK AI RESPONSE]
-
-I received your question:
-
-"{query}"
-
-Based on the DSA knowledge retrieved for **{title}**:
-
-- Topic: {topic}
-- Retrieved knowledge: {len(documents)} relevant sections
-
-The backend pipeline is working correctly.
-
-The request successfully passed through:
-
-Frontend
-→ FastAPI
-→ Orchestrator
-→ Agent
-→ RAG retrieval
-→ Response generation
-
-Gemini is currently disabled because development mock mode
-is enabled.
-
-When mock mode is disabled, Gemini will generate the actual
-AI response using the retrieved DSA knowledge.
-"""
+    return (
+        f"[MOCK RESPONSE]\n\n"
+        f"Question: {query}\n\n"
+        f"Relevant topic: {topic}\n"
+        f"Knowledge source: {title}\n"
+        f"Retrieved sections: {len(documents)}\n\n"
+        f"Mock mode is enabled. Gemini has not been called."
+    )
 
 
 # ============================================================
@@ -175,20 +163,21 @@ AI response using the retrieved DSA knowledge.
 def generate_answer(
     query: str,
     documents: List[Document],
+    language: str = "java",
 ) -> str:
-    """
-    Generate a DSA Coach answer using retrieved context.
-    """
+
+    # --------------------------------------------------------
+    # No retrieved knowledge
+    # --------------------------------------------------------
 
     if not documents:
-
         return (
             "I could not find relevant information in "
             "the DSA knowledge base for this question."
         )
 
     # --------------------------------------------------------
-    # DEVELOPMENT MOCK MODE
+    # MOCK MODE
     # --------------------------------------------------------
 
     if USE_MOCK_LLM:
@@ -203,32 +192,63 @@ def generate_answer(
         )
 
     # --------------------------------------------------------
-    # REAL GEMINI MODE
+    # REAL GEMINI
     # --------------------------------------------------------
+
+    print(
+        "LLM mock mode disabled - sending request to Gemini."
+    )
 
     context = build_context(documents)
 
+    # --------------------------------------------------------
+    # USER PROMPT
+    # --------------------------------------------------------
+
     user_prompt = f"""
-    Answer the student's question using the retrieved
-    DSA knowledge.
+Answer the student's DSA question using the retrieved
+knowledge below.
 
-    Student Question:
-    {query}
+Student Question:
+{query}
 
-    Retrieved Knowledge:
-    {context}
+Programming Language:
+{language}
 
-    Instructions:
-    - Answer the student's actual question directly.
-    - Use the retrieved knowledge as the primary source.
-    - Do not mention the retrieval system or internal context.
-    - Explain the approach clearly.
-    - Include time and space complexity when relevant.
-    - If code is requested, provide Java code.
-    - Keep the explanation suitable for a fresher preparing for placements.
-    """
+Retrieved Knowledge:
+{context}
+
+Instructions:
+
+- Answer the student's actual question directly.
+- Use the retrieved knowledge as the primary source.
+- Do not mention retrieval, RAG, agents, prompts, or
+  internal systems.
+- Explain the answer clearly and step-by-step.
+- Keep the explanation suitable for a fresher preparing
+  for placements.
+- Include time and space complexity when relevant.
+
+If the student asks for code:
+- Provide complete working code.
+- Use the requested programming language.
+- Do not switch to another language.
+- Explain the code briefly after providing it.
+
+If the retrieved knowledge does not contain enough
+information, be honest about that instead of inventing
+specific information.
+"""
+
+    # --------------------------------------------------------
+    # CREATE LLM
+    # --------------------------------------------------------
 
     llm = create_llm()
+
+    # --------------------------------------------------------
+    # CALL GEMINI
+    # --------------------------------------------------------
 
     response = llm.invoke(
         [
@@ -240,5 +260,9 @@ def generate_answer(
             ),
         ]
     )
+
+    # --------------------------------------------------------
+    # RETURN ANSWER
+    # --------------------------------------------------------
 
     return response.content

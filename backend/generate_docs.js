@@ -982,8 +982,6 @@ ${problem.keyIdea}
 
 ${problem.invariant}
 
-The invariant explains why binary search can eliminate part of the search space without losing the correct answer.
-
 ---
 
 ## Brute Force Approach
@@ -1009,7 +1007,7 @@ The optimized solution works because it exploits the structure provided by:
 
 **${problem.pattern}**
 
-The search space is reduced systematically while preserving the correct answer inside the remaining range.
+The algorithm maintains the necessary information while avoiding unnecessary work and ensures that the required answer is preserved throughout the process.
 
 ---
 
@@ -1057,11 +1055,12 @@ A concise interview explanation for **${problem.name}** is:
 
 When explaining this problem in an interview, focus on:
 
-1. Why binary search is applicable.
-2. What invariant is maintained.
-3. How the search boundaries change.
-4. Why half of the search space can be eliminated.
-5. The final time and space complexity.
+1. The core idea behind the problem.
+2. The data structure or algorithm being used.
+3. The important steps of the approach.
+4. Why the approach works.
+5. The time and space complexity.
+6. Common edge cases and mistakes.
 
 ---
 
