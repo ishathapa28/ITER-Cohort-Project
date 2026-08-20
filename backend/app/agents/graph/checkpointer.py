@@ -38,4 +38,6 @@ def create_checkpointer():
 
     checkpointer = PostgresSaver(connection)
 
+    checkpointer.setup()
+
     return checkpointer

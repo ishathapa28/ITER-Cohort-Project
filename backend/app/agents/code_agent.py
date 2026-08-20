@@ -72,5 +72,5 @@ for your answer.
     return generate_answer(
         query=enhanced_query,
         documents=documents,
-        
+        language=language,
     )

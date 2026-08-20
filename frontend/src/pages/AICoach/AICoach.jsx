@@ -16,6 +16,11 @@ import {
   FileCode2
 } from 'lucide-react'
 
+import ReactMarkdown from 'react-markdown'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
+
 import { useLocation } from 'react-router-dom'
 
 import { getCoachResponse } from '../../services/aiCoachService'
@@ -66,37 +71,224 @@ const quickPrompts = [
 
 
 // ============================================================
-// MESSAGE FORMATTER
+// MESSAGE CONTENT
 // ============================================================
+//
+// ReactMarkdown handles:
+// - **bold**
+// - *italic*
+// - `inline code`
+// - ```code blocks```
+// - headings
+// - lists
+// - links
+// - LaTeX math using remark-math + rehype-katex
+//
+// Example:
+// $$O(\log N)$$
+// will be rendered as mathematical notation instead of showing
+// the dollar signs.
+//
 
 function renderMessageContent(content) {
-  if (!content) {
+
+  if (content === null || content === undefined) {
     return null
   }
 
-  const parts = content.split(/(\*\*.*?\*\*)/g)
 
-  return parts.map((part, index) => {
-    if (
-      part.startsWith('**') &&
-      part.endsWith('**')
-    ) {
-      return (
-        <strong
-          key={index}
-          className="font-semibold"
-        >
-          {part.slice(2, -2)}
-        </strong>
-      )
+  // ----------------------------------------------------------
+  // Make sure content is always a string
+  // ----------------------------------------------------------
+
+  if (typeof content !== 'string') {
+
+    if (typeof content === 'object') {
+
+      content =
+        content.answer ||
+        content.response ||
+        content.content ||
+        JSON.stringify(content, null, 2)
+
+    } else {
+
+      content = String(content)
+
     }
 
-    return (
-      <span key={index}>
-        {part}
-      </span>
-    )
-  })
+  }
+
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+
+      components={{
+
+        // ----------------------------------------------------
+        // Paragraph
+        // ----------------------------------------------------
+
+        p: ({ children }) => (
+          <p className="mb-3 last:mb-0 text-slate-700">
+            {children}
+          </p>
+        ),
+
+
+        // ----------------------------------------------------
+        // Headings
+        // ----------------------------------------------------
+
+        h1: ({ children }) => (
+          <h1 className="text-base font-bold text-slate-900 mb-3 mt-4 first:mt-0">
+            {children}
+          </h1>
+        ),
+
+        h2: ({ children }) => (
+          <h2 className="text-sm font-bold text-slate-900 mb-2 mt-4 first:mt-0">
+            {children}
+          </h2>
+        ),
+
+        h3: ({ children }) => (
+          <h3 className="text-sm font-semibold text-slate-900 mb-2 mt-3 first:mt-0">
+            {children}
+          </h3>
+        ),
+
+
+        // ----------------------------------------------------
+        // Strong / Bold
+        // ----------------------------------------------------
+
+        strong: ({ children }) => (
+          <strong className="font-semibold text-slate-900">
+            {children}
+          </strong>
+        ),
+
+        em: ({ children }) => (
+          <em className="italic text-slate-700">
+            {children}
+          </em>
+        ),
+
+
+        // ----------------------------------------------------
+        // Lists
+        // ----------------------------------------------------
+
+        ul: ({ children }) => (
+          <ul className="list-disc pl-5 mb-3 space-y-1 text-slate-700">
+            {children}
+          </ul>
+        ),
+
+        ol: ({ children }) => (
+          <ol className="list-decimal pl-5 mb-3 space-y-1 text-slate-700">
+            {children}
+          </ol>
+        ),
+
+        li: ({ children }) => (
+          <li className="leading-6 text-slate-700">
+            {children}
+          </li>
+        ),
+
+
+        // ----------------------------------------------------
+        // Inline Code
+        // ----------------------------------------------------
+
+        code: ({className, children, ...props }) => {
+
+          const isCodeBlock =
+          Boolean(className?.startsWith('language-')) ||
+          String(children).includes('\n')
+
+          if (!isCodeBlock) {
+
+            return (
+              <code
+                className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-900 font-mono text-[11px] font-medium"
+                {...props}
+              >
+                {children}
+              </code>
+            )
+
+          }
+
+
+          return (
+            <code
+              className="font-mono text-[11px] leading-5 text-slate-200"
+              {...props}
+            >
+              {children}
+            </code>
+          )
+
+        },
+
+
+        // ----------------------------------------------------
+        // Code Blocks
+        // ----------------------------------------------------
+
+        pre: ({ children }) => (
+          <pre className="my-3 overflow-x-auto rounded-xl bg-slate-950 p-4 text-[11px] leading-5 text-slate-200">
+            {children}
+          </pre>
+        ),
+
+
+        // ----------------------------------------------------
+        // Blockquote
+        // ----------------------------------------------------
+
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-2 border-blue-300 pl-3 my-3 text-slate-600 italic">
+            {children}
+          </blockquote>
+        ),
+
+
+        // ----------------------------------------------------
+        // Horizontal Rule
+        // ----------------------------------------------------
+
+        hr: () => (
+          <hr className="my-4 border-slate-200" />
+        ),
+
+
+        // ----------------------------------------------------
+        // Links
+        // ----------------------------------------------------
+
+        a: ({ children, href }) => (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-700 underline"
+          >
+            {children}
+          </a>
+        )
+
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  )
+
 }
 
 
@@ -109,6 +301,14 @@ function AICoach() {
   const location = useLocation()
 
   const messagesEndRef = useRef(null)
+
+
+  // ==========================================================
+  // THREAD ID
+  // ==========================================================
+
+  const threadIdRef =
+    useRef(crypto.randomUUID())
 
 
   // ==========================================================
@@ -130,7 +330,7 @@ function AICoach() {
   // ==========================================================
 
   const [selectedMode, setSelectedMode] =
-    useState('hint')
+    useState('explain')
 
   const [language, setLanguage] =
     useState(initialLanguage)
@@ -184,16 +384,19 @@ function AICoach() {
   const createWelcomeMessage = () => {
 
     if (problemContext) {
+
       return (
         `I’m ready to help you with **${problemContext.title}**. ` +
         `What would you like to work on?`
       )
+
     }
 
     return (
       'I’m your DSA Coach. Ask me about a problem, ' +
       'your approach, complexity, or your code.'
     )
+
   }
 
 
@@ -203,6 +406,14 @@ function AICoach() {
 
   useEffect(() => {
 
+    // --------------------------------------------------------
+    // New problem = new conversation thread
+    // --------------------------------------------------------
+
+    threadIdRef.current =
+      crypto.randomUUID()
+
+
     setMessages([
       {
         id: `welcome-${Date.now()}`,
@@ -210,6 +421,7 @@ function AICoach() {
         content: createWelcomeMessage()
       }
     ])
+
 
     setError('')
     setInput('')
@@ -226,11 +438,20 @@ function AICoach() {
   useEffect(() => {
 
     if (location.state?.code !== undefined) {
-      setCode(location.state.code || '')
+
+      setCode(
+        location.state.code || ''
+      )
+
     }
 
+
     if (location.state?.language) {
-      setLanguage(location.state.language)
+
+      setLanguage(
+        location.state.language
+      )
+
     }
 
   }, [location.state])
@@ -326,9 +547,24 @@ function AICoach() {
         problem:
           problemContext,
 
-        conversation
+        conversation,
+
+        thread_id:
+          threadIdRef.current
 
       })
+
+
+      // ------------------------------------------------------
+      // UPDATE THREAD ID
+      // ------------------------------------------------------
+
+      if (response?.thread_id) {
+
+        threadIdRef.current =
+          response.thread_id
+
+      }
 
 
       // ------------------------------------------------------
@@ -338,7 +574,7 @@ function AICoach() {
       const assistantMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: response
+        content: response.answer
       }
 
 
@@ -399,6 +635,15 @@ function AICoach() {
 
   const handleClearChat = () => {
 
+    // --------------------------------------------------------
+    // Clearing the visible messages should ALSO create a new
+    // LangGraph thread.
+    // --------------------------------------------------------
+
+    threadIdRef.current =
+      crypto.randomUUID()
+
+
     setMessages([
       {
         id: `welcome-${Date.now()}`,
@@ -408,6 +653,7 @@ function AICoach() {
           : 'Let’s start fresh. What would you like help with?'
       }
     ])
+
 
     setInput('')
     setError('')
@@ -882,21 +1128,27 @@ function AICoach() {
                           py-3
                           ${
                             isUser
-                              ? 'bg-slate-900 text-white rounded-tr-md'
+                              ? 'bg-slate-50 border border-slate-200 text-white rounded-tr-md'
                               : 'bg-slate-50 border border-slate-200 text-slate-700 rounded-tl-md'
                           }
                         `}
                       >
 
-                        <p
+                        {/* ------------------------------------------------
+                            IMPORTANT:
+                            Markdown must NOT be wrapped inside <p>.
+                            ReactMarkdown creates its own paragraphs,
+                            code blocks, lists, headings, etc.
+                        ------------------------------------------------- */}
+
+                        <div
                           className={`
                             text-xs
                             leading-6
-                            whitespace-pre-wrap
                             ${
                               isUser
                                 ? 'text-slate-100'
-                                : 'text-slate-600'
+                                : 'text-slate-700'
                             }
                           `}
                         >
@@ -905,7 +1157,7 @@ function AICoach() {
                             message.content
                           )}
 
-                        </p>
+                        </div>
 
                       </div>
 
@@ -1073,7 +1325,7 @@ function AICoach() {
                   placeholder="Ask your coach anything..."
                   rows={2}
                   disabled={isThinking}
-                  className="w-full resize-none bg-transparent px-4 py-3 pr-14 text-xs text-slate-700 placeholder:text-slate-400 outline-none disabled:opacity-60"
+                  className="w-full resize-none bg-white px-4 py-3 pr-14 text-xs text-slate-700 placeholder:text-slate-400 outline-none disabled:bg-white"
                 />
 
 
@@ -1129,6 +1381,7 @@ function AICoach() {
     </div>
 
   )
+
 }
 
 

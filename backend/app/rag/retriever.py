@@ -412,6 +412,272 @@ def section_score(section: str) -> float:
 
     return 0.00
 
+# ============================================================
+# GENERAL DSA CONCEPT ALIASES
+# ============================================================
+
+def get_concept_aliases() -> Dict[str, List[str]]:
+    """
+    Map common user terminology to equivalent DSA concepts.
+
+    This makes conceptual questions work across the whole
+    knowledge base instead of hardcoding one data structure.
+
+    Example:
+
+        "what is hashmap"
+        "explain hash map"
+        "what is a hash table"
+
+    are all treated as the same general concept.
+    """
+
+    return {
+        "linked list": [
+            "linked list",
+            "linkedlist",
+            "singly linked list",
+            "doubly linked list",
+            "circular linked list",
+        ],
+
+        "hash map": [
+            "hash map",
+            "hashmap",
+            "hash table",
+            "hashtable",
+            "map",
+            "dictionary",
+        ],
+
+        "array": [
+            "array",
+            "arrays",
+        ],
+
+        "string": [
+            "string",
+            "strings",
+        ],
+
+        "stack": [
+            "stack",
+            "stacks",
+        ],
+
+        "queue": [
+            "queue",
+            "queues",
+        ],
+
+        "heap": [
+            "heap",
+            "heaps",
+            "min heap",
+            "max heap",
+        ],
+
+        "priority queue": [
+            "priority queue",
+            "priority queues",
+        ],
+
+        "tree": [
+            "tree",
+            "trees",
+        ],
+
+        "binary tree": [
+            "binary tree",
+            "binary trees",
+        ],
+
+        "binary search tree": [
+            "binary search tree",
+            "binary search trees",
+            "bst",
+        ],
+
+        "graph": [
+            "graph",
+            "graphs",
+        ],
+
+        "binary search": [
+            "binary search",
+        ],
+
+        "recursion": [
+            "recursion",
+            "recursive",
+        ],
+
+        "dynamic programming": [
+            "dynamic programming",
+            "dp",
+        ],
+
+        "greedy": [
+            "greedy",
+            "greedy algorithm",
+        ],
+
+        "backtracking": [
+            "backtracking",
+        ],
+
+        "sliding window": [
+            "sliding window",
+        ],
+
+        "two pointer": [
+            "two pointer",
+            "two pointers",
+            "two pointer technique",
+        ],
+    }
+
+# ============================================================
+# CONCEPT DETECTION
+# ============================================================
+
+def detect_query_concepts(query: str) -> Set[str]:
+    """
+    Detect general DSA concepts explicitly mentioned by the user.
+
+    Example:
+
+        "What is a linked list?"
+
+        -> {"linked list"}
+
+        "Explain hashmap and its operations"
+
+        -> {"hash map"}
+    """
+
+    query_normalized = normalize_text(query)
+
+    aliases = get_concept_aliases()
+
+    detected = set()
+
+    for canonical_name, variations in aliases.items():
+
+        for variation in variations:
+            if variation in query_normalized:
+                detected.add(canonical_name)
+                break
+
+    return detected
+
+# ============================================================
+# CONCEPT MATCH SCORE
+# ============================================================
+
+def concept_match_score(
+    query: str,
+    title: str,
+    topic: str,
+    problem_id: str,
+    section: str,
+    content: str,
+) -> float:
+    """
+    Strongly rank chunks belonging to a concept explicitly
+    mentioned by the user.
+
+    This is especially important for conceptual questions like:
+
+        "What is linked list?"
+        "What is hashmap?"
+        "Explain stack"
+        "What is a binary tree?"
+
+    Lower score = better.
+    """
+
+    detected_concepts = detect_query_concepts(query)
+
+    if not detected_concepts:
+         return 0.0
+
+    title_normalized = normalize_text(title)
+    topic_normalized = normalize_text(topic)
+    problem_normalized = normalize_text(problem_id)
+    section_normalized = normalize_text(section)
+    content_normalized = normalize_text(content)
+
+    aliases = get_concept_aliases()
+
+    score = 0.0
+
+    for concept in detected_concepts:
+
+        variations = aliases.get(concept, [])
+
+        direct_title_match = any(
+            variation in title_normalized
+            for variation in variations
+        )
+
+        direct_topic_match = any(
+            variation in topic_normalized
+            for variation in variations
+        )
+
+        direct_problem_match = any(
+            variation in problem_normalized
+            for variation in variations
+        )
+
+        direct_content_match = any(
+            variation in content_normalized
+            for variation in variations
+        )
+
+        # ----------------------------------------------------
+        # Strongest: concept in title
+        # ----------------------------------------------------
+
+        if direct_title_match:
+            score -= 0.25
+
+        # ----------------------------------------------------
+        # Strong: concept in topic
+        # ----------------------------------------------------
+
+        if direct_topic_match:
+            score -= 0.22
+
+        # ----------------------------------------------------
+        # Strong: concept in problem ID
+        # ----------------------------------------------------
+
+        if direct_problem_match:
+            score -= 0.20
+
+        # ----------------------------------------------------
+        # Weaker: concept only in content
+        # ----------------------------------------------------
+        elif direct_content_match:
+            score -= 0.08
+
+        # ----------------------------------------------------
+        # Prefer explanatory sections for concept questions
+        # ----------------------------------------------------
+
+        if section_normalized in {
+            "introduction",
+            "definition",
+            "overview",
+            "problem",
+            "problem description",
+            "key idea",
+            "interview explanation",
+        }:
+            score -= 0.15
+    return score
 
 # ============================================================
 # QUERY INTENT / CONCEPT MATCHING
@@ -534,20 +800,48 @@ def query_concept_score(
     definition_query = (
         query_normalized.startswith("what is")
         or query_normalized.startswith("what are")
+        or query_normalized.startswith("what's")
         or "define " in query_normalized
         or "definition" in query_normalized
+        or "meaning of" in query_normalized
+        or "explain " in query_normalized
     )
 
     if definition_query:
 
         if section_normalized in {
             "introduction",
+            "definition",
+            "overview",
             "problem",
             "problem description",
             "key idea",
             "interview explanation",
         }:
-            score -= 0.08
+            score -= 0.15
+
+        # A definition normally contains explanatory language.
+        definition_terms = [
+            "is a",
+            "is an",
+            "data structure",
+            "consists of",
+            "used to",
+            "allows",
+            "stores",
+        ]
+
+        definition_matches = sum(
+            1
+            for term in definition_terms
+            if term in content_normalized
+        )
+
+        if definition_matches:
+            score -= min(
+                0.10,
+                0.025 * definition_matches
+            )
 
     return score
 
@@ -579,8 +873,8 @@ def query_code_intent_score(
 
     query_normalized = normalize_text(query)
 
-    title_normalized = normalize_text(title)
-    problem_normalized = normalize_text(problem_id)
+    #title_normalized = normalize_text(title)
+    #problem_normalized = normalize_text(problem_id)
     section_normalized = normalize_text(section)
     content_normalized = content.lower()
 
@@ -722,7 +1016,7 @@ def query_code_intent_score(
 
 
 # ============================================================
-# BINARY SEARCH / CONCEPT ALIAS SCORE
+# CONCEPT ALIAS SCORE
 # ============================================================
 
 def concept_alias_score(
@@ -778,7 +1072,7 @@ def concept_alias_score(
         if "search x in sorted array" in title_normalized:
             score -= 0.25
 
-        if "search_x_in_sorted_array" in problem_normalized:
+        if "search x in sorted array" in problem_normalized:
             score -= 0.25
 
     # ========================================================
@@ -809,7 +1103,6 @@ def concept_alias_score(
             score -= 0.10
 
     return score
-
 
 # ============================================================
 # SIMILARITY SEARCH
@@ -890,6 +1183,71 @@ def similarity_search(
         rows = result.fetchall()
 
         # ====================================================
+        # 2B. EXACT / LEXICAL PROBLEM CANDIDATES
+        # ====================================================
+        #
+        # pgvector finds semantically similar problems, but
+        # semantic similarity can sometimes rank a related
+        # problem above the exact problem requested by the user.
+        #
+        # This additional query searches the database directly
+        # for a problem whose title or problem_id appears in the
+        # user's query.
+        #
+        # This is general and does NOT require hardcoding problem
+        # names such as Two Sum, 3Sum, etc.
+        # ====================================================
+
+        lexical_sql = text(
+            """
+            SELECT DISTINCT ON (problem_id)
+                id,
+                problem_id,
+                title,
+                topic,
+                difficulty,
+                pattern,
+                section,
+                content,
+                source,
+                0.0 AS distance
+            FROM knowledge_chunks
+            WHERE
+                LOWER(:query) LIKE '%' || LOWER(title) || '%'
+                OR
+                LOWER(:query) LIKE '%' ||
+                LOWER(REPLACE(problem_id, '_', ' ')) || '%'
+            ORDER BY problem_id, id
+            """
+        )
+
+        lexical_result = db.execute(
+            lexical_sql,
+            {
+                "query": query,
+            },
+        )
+
+        lexical_rows = lexical_result.fetchall()
+
+        # ====================================================
+        # MERGE LEXICAL RESULTS WITH SEMANTIC RESULTS
+        # ====================================================
+
+        existing_ids = {
+            row.id
+            for row in rows
+        }
+
+        for lexical_row in lexical_rows:
+
+            if lexical_row.id not in existing_ids:
+
+                rows.append(lexical_row)
+
+                existing_ids.add(lexical_row.id)
+
+        # ====================================================
         # 3. QUERY PREPARATION
         # ====================================================
 
@@ -898,6 +1256,18 @@ def similarity_search(
 
         explicit_problem_names = (
             extract_explicit_problem_candidates(query)
+        )
+
+        detected_concepts = detect_query_concepts(query)
+
+        # Is this primarily a conceptual question?
+        definition_query = (
+            query_normalized.startswith("what is")
+            or query_normalized.startswith("what are")
+            or query_normalized.startswith("what's")
+            or "define " in query_normalized
+            or "definition" in query_normalized
+            or "meaning of" in query_normalized
         )
 
         candidates: List[Dict[str, Any]] = []
@@ -910,6 +1280,7 @@ def similarity_search(
 
             title = normalize_text(row.title)
             problem_id = normalize_text(row.problem_id)
+            topic = normalize_text(row.topic)
             pattern = normalize_text(row.pattern)
             section = normalize_text(row.section)
             content = normalize_text(row.content)
@@ -956,6 +1327,21 @@ def similarity_search(
                     score -= 0.15
 
             # ==================================================
+            # C. GENERAL CONCEPT MATCH
+            # ==================================================
+
+            if detected_concepts:
+
+                score += concept_match_score(
+                    query=query,
+                    title=row.title,
+                    topic=row.topic,
+                    problem_id=row.problem_id,
+                    section=row.section,
+                    content=row.content,
+                )
+
+            # ==================================================
             # C. TITLE WORD OVERLAP
             # ==================================================
 
@@ -982,6 +1368,28 @@ def similarity_search(
             ):
 
                 score -= 0.15
+
+            # ==================================================
+            # F. TOPIC MATCH
+            # ==================================================
+
+            if detected_concepts:
+
+                aliases = get_concept_aliases()
+
+                for concept in detected_concepts:
+
+                    variations = aliases.get(
+                        concept,
+                        [],
+                    )
+
+                    if any(
+                        variation in topic
+                        for variation in variations
+                    ):
+
+                        score -= 0.12
 
             # ==================================================
             # E. PATTERN MATCH
@@ -1056,6 +1464,54 @@ def similarity_search(
                 candidate_problem_id=row.problem_id,
                 candidate_title=row.title,
             )
+
+            # ==================================================
+            # M. DEFINITION-SPECIFIC BOOST
+            # ==================================================
+
+            if definition_query and detected_concepts:
+
+                # Prefer introduction / definition / overview.
+                if section in {
+                    "introduction",
+                    "definition",
+                    "overview",
+                }:
+
+                    score -= 0.20
+
+                # Problem-description sections are also useful.
+                elif section in {
+                    "problem",
+                    "problem description",
+                }:
+
+                    score -= 0.08
+
+                # Prefer chunks that actually explain the concept.
+                definition_terms = [
+                    "is a",
+                    "is an",
+                    "data structure",
+                    "consists of",
+                    "stores",
+                    "used to",
+                    "allows",
+                ]
+
+                definition_matches = sum(
+                    1
+                    for term in definition_terms
+                    if term in content
+                )
+
+                if definition_matches:
+
+                    score -= min(
+                        0.10,
+                        0.02 * definition_matches
+                    )
+
 
             # ==================================================
             # H. IMPORTANT CONTENT KEYWORDS

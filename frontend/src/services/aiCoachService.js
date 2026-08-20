@@ -2,49 +2,32 @@
 // AI COACH SERVICE
 // ============================================================
 //
-// This file is the communication layer between the AI Coach UI
-// and the future FastAPI AI agent.
-//
-// CURRENT:
-// Uses a mock response so the complete frontend can be built
-// and tested without the backend.
-//
-// FUTURE:
-// Replace the mock section inside getCoachResponse() with
-// a fetch() request to your FastAPI backend.
-//
-// IMPORTANT:
-// AICoach.jsx does NOT need to know how the AI works.
-// It only calls getCoachResponse().
-//
+// communication layer between the AI Coach UI
+// and the FastAPI AI agent.
+// 
 // Flow:
 //
 // AICoach.jsx
 //      ↓
 // getCoachResponse()
 //      ↓
-// FastAPI
+// FastAPI /api/coach/ask
 //      ↓
-// AI Agent
+// LangGraph
 //      ↓
-// LLM / tools / code analysis
+// Router
 //      ↓
-// response
+// Specialized Agent
+//      ↓
+// RAG + LLM
+//      ↓
+// Response
 //
 // ============================================================
-
 
 // ============================================================
 // CONFIGURATION
 // ============================================================
-
-// Later you can move this into a .env file.
-//
-// Example:
-//
-// VITE_API_BASE_URL=http://localhost:8000
-//
-// For now we keep it empty because we are using mock data.
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
@@ -69,7 +52,7 @@ const API_BASE_URL =
 //
 // ============================================================
 
-const mockResponses = {
+/*const mockResponses = {
 
   hint: {
     default:
@@ -91,16 +74,11 @@ const mockResponses = {
       'I can review your solution for correctness, time complexity, space complexity, and edge cases. Once the FastAPI execution and AI backend are connected, I can analyze your actual code in detail.'
   }
 
-}
+}*/
 
 
 // ============================================================
 // BUILD REQUEST PAYLOAD
-// ============================================================
-//
-// Keeping this separate makes the future backend integration
-// easier.
-//
 // ============================================================
 
 function buildCoachPayload({
@@ -109,37 +87,49 @@ function buildCoachPayload({
   language,
   code,
   problem,
-  conversation
+  conversation,
+  thread_id
 }) {
 
   return {
 
+    // User's current message
     message,
 
-    mode,
+    // Current coaching mode
+    mode: mode || "explain",
 
-    language,
+    // Programming language
+    language: language || "java",
 
-    code: code || '',
+    // User's submitted code
+    code: code || "",
 
-    problem: problem
-      ? {
-          id: problem.id,
-          title: problem.title,
-          difficulty: problem.difficulty,
-          topic: problem.topic,
-          pattern: problem.pattern,
-          description: problem.description,
-          examples: problem.examples || [],
-          constraints: problem.constraints || []
-        }
-      : null,
+    // Current DSA problem
+    problem:
+      problem
+        ? {
+            id: problem.id,
+            title: problem.title,
+            difficulty: problem.difficulty,
+            topic: problem.topic,
+            pattern: problem.pattern,
+            description: problem.description,
+            examples: problem.examples || [],
+            constraints: problem.constraints || []
+          }
+        : null,
 
-    conversation: conversation || []
+    // Frontend conversation history
+    conversation: conversation || [],
+
+    // LangGraph conversation identifier
+    thread_id
 
   }
 
 }
+
 
 
 // ============================================================
@@ -151,7 +141,7 @@ function buildCoachPayload({
 //
 // ============================================================
 
-async function getMockCoachResponse({
+/*async function getMockCoachResponse({
   mode
 }) {
 
@@ -167,39 +157,26 @@ async function getMockCoachResponse({
     mockResponses.hint.default
   )
 
-}
+}*/
 
 
 // ============================================================
 // FASTAPI REQUEST
 // ============================================================
-//
-// This function is ready for the future backend.
-//
-// Expected FastAPI endpoint:
-//
-// POST /api/ai-coach/chat
-//
-// Expected request:
-//
-// {
-//   message,
-//   mode,
-//   language,
-//   code,
-//   problem,
-//   conversation
-// }
-//
-// Expected response:
-//
-// {
-//   response: "..."
-// }
-//
-// ============================================================
 
 async function getFastAPIResponse(payload) {
+
+  console.log("====================================");
+  console.log("AI COACH REQUEST");
+  console.log("====================================");
+  console.log("Message:", payload.message);
+  console.log("Mode:", payload.mode);
+  console.log("Language:", payload.language);
+  console.log("Code:", payload.code);
+  console.log("Problem:", payload.problem);
+  console.log("Thread ID:", payload.thread_id);
+  console.log("====================================");
+
 
   const response = await fetch(
     `${API_BASE_URL}/api/coach/ask`,
@@ -216,7 +193,8 @@ async function getFastAPIResponse(payload) {
         language: payload.language || 'java',
         code: payload.code || '',
         problem: payload.problem || null,
-        conversation: payload.conversation || []
+        conversation: payload.conversation || [],
+        thread_id: payload.thread_id
       })
     }
   )
@@ -246,6 +224,14 @@ async function getFastAPIResponse(payload) {
 
   const data = await response.json()
 
+  console.log("====================================");
+  console.log("AI COACH RESPONSE");
+  console.log("====================================");
+  console.log(data);
+  console.log("Agent Type:", data?.agent_type);
+  console.log("Evaluation:", data?.evaluation);
+  console.log("Retry Count:", data?.retry_count);
+  console.log("====================================");
 
   if (!data?.answer) {
 
@@ -255,8 +241,27 @@ async function getFastAPIResponse(payload) {
 
   }
 
+  let answer = data.answer
 
-  return data.answer
+  // ----------------------------------------------------------
+  // HANDLE OBJECT ANSWERS
+  // ----------------------------------------------------------
+
+  if (typeof answer === 'object' && answer !== null) {
+    answer =
+      answer.answer ||
+      answer.response ||
+      answer.content ||
+      JSON.stringify(answer)
+  }
+
+  if (typeof answer !== 'string') {
+    throw new Error(
+      'AI Coach returned an invalid answer.'
+    )
+  }
+
+  return data
 }
 
 
@@ -266,19 +271,9 @@ async function getFastAPIResponse(payload) {
 //
 // THIS is the only function AICoach.jsx needs.
 //
-// For now:
-//
-// USE_MOCK_AI = true
-//
-// Later:
-//
-// USE_MOCK_AI = false
-//
-// Then the frontend will automatically use FastAPI.
-//
 // ============================================================
 
-const USE_MOCK_AI = false
+//const USE_MOCK_AI = false
 
 
 export async function getCoachResponse({
@@ -293,7 +288,9 @@ export async function getCoachResponse({
 
   problem,
 
-  conversation
+  conversation,
+
+  thread_id,
 
 }) {
 
@@ -304,7 +301,8 @@ export async function getCoachResponse({
       language,
       code,
       problem,
-      conversation
+      conversation,
+      thread_id
     })
 
 
@@ -312,47 +310,11 @@ export async function getCoachResponse({
   // Development logging
   // ----------------------------------------------------------
 
-  console.log(
-    'AI Coach request:',
-    payload
-  )
+  console.log("AI Coach request:", payload);
 
+  // ==========================================================
+  // FASTAPI
+  // ==========================================================
 
-  // ----------------------------------------------------------
-  // CURRENT FRONTEND MODE
-  // ----------------------------------------------------------
-
-  if (USE_MOCK_AI) {
-
-    return getMockCoachResponse({
-      mode
-    })
-
-  }
-
-
-  // ----------------------------------------------------------
-  // FUTURE FASTAPI MODE
-  // ----------------------------------------------------------
-
-  return getFastAPIResponse(payload)
-
+  return await getFastAPIResponse(payload);
 }
-
-
-// ============================================================
-// FUTURE BACKEND RESPONSE EXAMPLE
-// ============================================================
-//
-// FastAPI:
-//
-// @app.post("/api/ai-coach/chat")
-// async def ai_coach(request: CoachRequest):
-//
-//     response = await agent.run(...)
-//
-//     return {
-//         "response": response
-//     }
-//
-// ============================================================

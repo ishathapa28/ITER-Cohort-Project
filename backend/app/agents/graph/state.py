@@ -49,6 +49,8 @@ class CoachState(TypedDict, total=False):
 
     agent_type: str #tells the graph which agent should handle the request.
 
+    resolved_query: str
+    
     # --------------------------------------------------------
     # RAG
     # --------------------------------------------------------

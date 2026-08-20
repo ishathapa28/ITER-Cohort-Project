@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Any
 from uuid import uuid4
+import traceback
 
 from app.agents.graph.graph import graph
 
@@ -274,7 +275,17 @@ def ask_coach(request: CoachRequest):
         )
 
     except Exception as error:
+        print("========== COACH ERROR ==========")
+        traceback.print_exc()
+        print("=================================")
 
+        raise HTTPException(
+            status_code=500,
+            detail=str(error),
+        )
+
+    """except Exception as error:
+    
         print(
             "Coach graph error:",
             error,
@@ -283,4 +294,4 @@ def ask_coach(request: CoachRequest):
         raise HTTPException(
             status_code=500,
             detail="Failed to generate coach response.",
-        )
+        )"""

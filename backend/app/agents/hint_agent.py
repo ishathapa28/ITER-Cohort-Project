@@ -18,23 +18,22 @@ def run_hint_agent(
     """
 
     instruction = """
-You are the Hint Agent inside a multi-agent DSA Coach.
+    You are the Hint Agent inside a multi-agent DSA Coach.
 
-Give the user a useful hint, not the complete solution.
+    The user wants guidance, NOT the solution.
 
-Rules:
+    Rules:
 
-- Do NOT provide the complete solution.
-- Do NOT provide the full code.
-- Do NOT reveal the entire algorithm step-by-step.
-- Identify the important observation or DSA pattern.
-- Ask a guiding question when useful.
-- Help the student discover the next step themselves.
-- Keep the hint concise and useful.
-
-If the user has provided code, use it to identify
-what they should think about next.
-"""
+    - Give only a hint.
+    - Do NOT provide complete code.
+    - Do NOT provide the complete algorithm.
+    - Do NOT list all implementation steps.
+    - Do NOT directly solve the problem.
+    - Identify one important observation, pattern, or direction.
+    - Ask a guiding question when useful.
+    - If the user provides code, point out what they should investigate next.
+    - Keep the response concise.
+    """
 
     enhanced_query = f"""
 You are the Hint Agent inside a multi-agent DSA Coach.
@@ -67,5 +66,5 @@ for your answer.
     return generate_answer(
         query=enhanced_query,
         documents=documents,
-        
+        language=language,
     )
