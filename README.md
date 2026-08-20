@@ -85,12 +85,10 @@ DSA Coach AI uses specialized agents for different learning tasks:
 
 * PostgreSQL & Pgvector
 * DSA Markdown Knowledge Base
-* Metadata and Deduplication Pipeline
 
 ### Authentication & Tools
 
 * Firebase Authentication
-* JWT
 * Git & GitHub
 
 ---
